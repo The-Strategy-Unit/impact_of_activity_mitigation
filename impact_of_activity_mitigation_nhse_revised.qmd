@@ -83,6 +83,8 @@ The activity subsets were assigned to mitigation types as follows:
 |                            |                                             | Low cost discharged attendances                   |
 +----------------------------+---------------------------------------------+---------------------------------------------------+
 
+**NB there is an issue with the frequent ED attenders activity subset such that it is not possible to identify instances in 2011 or 2012. As such, to ensure that the trends are not affected by this data quality issue, in the analysis for the ED attendances point of delivery, we remove these two initial years so that the analysis runs from 2013-2019.**
+
 ### Population data
 
 We use mid-year population estimates from the ONS to analyse population growth. These data are publicly available at: <https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/populationestimatesforukenglandandwalesscotlandandnorthernireland>
