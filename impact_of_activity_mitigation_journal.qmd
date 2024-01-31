@@ -1,5 +1,5 @@
 ---
-title: "Estimating the impacts of activity mitigation efforts on activity growth | 2011-2019"
+title: "Estimating the impacts of activity mitigation efforts on activity growth | 2013-2019"
 subtitle: "Preliminary analysis to support the New Hospitals Programme"
 author: "Gabriel Hobro and Steven Wyatt"
 date: "November 2023"
@@ -33,7 +33,7 @@ library(mgcv)
 
 Health systems commonly attempt to limit unnecessary or avoidable hospital activity, as a means of alleviating pressure on hospitals, controlling commissioner costs, and as a by-product of efforts to improve population health.
 
-Forecasting the impact of activity mitigation is a critical task for Trusts participating in the New Hospitals Programme. Given constraints on capital budgets it can be tempting to overstate the impact of activity mitigation to offset the many factors that will increases demand (population growth and aging, new medical technologies, etc). One way to minimise this risk of overstating the potential for activity mitigation is to set assumptions in light of the impact of historical efforts to mitigate activity. In this paper we attempt to measure the extent to which health systems succeeded in mitigating hospital activity over the period from 2011 to 2019. Activity mitigation was a constant feature of health policy during this period, via for example, QIPP (Quality, Improvement, Productivity and Prevention), the Better Care Fund, and New Models of Care Vanguard Programme.
+Forecasting the impact of activity mitigation is a critical task for Trusts participating in the New Hospitals Programme. Given constraints on capital budgets it can be tempting to overstate the impact of activity mitigation to offset the many factors that will increases demand (population growth and aging, new medical technologies, etc). One way to minimise this risk of overstating the potential for activity mitigation is to set assumptions in light of the impact of historical efforts to mitigate activity. In this paper we attempt to measure the extent to which health systems succeeded in mitigating hospital activity over the period from 2013 to 2019. Activity mitigation was a constant feature of health policy during this period, via for example, QIPP (Quality, Improvement, Productivity and Prevention), the Better Care Fund, and New Models of Care Vanguard Programme.
 
 We do this first by defining a subset of activity that might plausibly be mitigated by one of three mechanisms:
 
@@ -181,19 +181,24 @@ ons_population_series_2 <- ons_population_series_1 |>
                values_to = "population") |>
   mutate(year = as.numeric(str_extract(year, "\\d{4}")))
 
-# get the national figures
+# get the national figures and filter to 2013 onwards
 ons_population_series_3 <- ons_population_series_2 |>
   group_by(country, sex, age, year) |>
   summarise(population = sum(population)) |>
-  filter(country == "E")
+  filter(country == "E", year >= 2013)
 ```
 
 ```{r am_analysis}
 #| message: false
 #| warning: false
 
+
+#  filtering to years from 2013
+hospitalActivity_Df_adj <- hospitalActivity_Df |> 
+  filter(yr >= 2013)
+
 # recoding the small volume mitigatable categories
-hospitalActivity_Df_adj <- hospitalActivity_Df |>
+hospitalActivity_Df_adj <- hospitalActivity_Df_adj |>
   mutate(
     mitigatable = case_when((pod=="IpElec" | pod=="IpMat") & mitigatable == "reSu" ~ "none",
                             pod=="IpMat" & mitigatable == "prev" ~ "none",
@@ -231,12 +236,12 @@ hospital_activity_am_gam_input <- hospitalActivity_Df_adj |>
 # create the combined data
 activity_mitigators_gam_data <- full_join(ons_population_series_3, hospital_activity_am_gam_input,
                           by = c("age", "year", "sex")) |>
-  filter(between(year, 2011, 2019)) |>
+  filter(between(year, 2013, 2019)) |>
   ungroup()
 
-# add in the yearN (number of years since 2011), and population_share variable
+# add in the yearN (number of years since 2013), and population_share variable
 activity_mitigators_gam_data <- activity_mitigators_gam_data |>
-  mutate(yearN = year - 2011) |>
+  mutate(yearN = year - 2013) |>
   group_by( pod) |>
   mutate(population_share = population / mean(population)) |>
   ungroup()
@@ -327,7 +332,7 @@ hospitalActivity_Df_adj |>
   NHSRtheme::scale_fill_nhs()
 ```
 
-The next chart shows the activity volumes indexed to the values in the initial year of 2011.
+The next chart shows the activity volumes indexed to the values in the initial year of 2013.
 
 We can see that generally the numbers of admissions / attendances for activity in scope of mitigation was actually increasing at a greater rate than those out of scope. The only exceptions to this are cases in scope of mitigation via rationing for outpatient attendances and elective admissions.
 
@@ -415,11 +420,11 @@ am_analysis_results |>
 
 We can see that results do not conform to expectations.
 
-Only cases in scope of the mitigation via rationing showed a lower growth rate than cases considered out of the scope of mitigation. This was specifically for inpatient elective spells (`r scales::percent(am_analysis_results[[3,3]]-1, accuracy = 0.01)`) and outpatient attendances (`r scales::percent(am_analysis_results[[6,3]]-1, accuracy = 0.01)`).
+Only cases in scope of the mitigation via rationing in inpatient elective spells (`r scales::percent(am_analysis_results[[3,3]]-1, accuracy = 0.01)` ) and outpatient attendances (`r scales::percent(am_analysis_results[[6,3]]-1, accuracy = 0.01)`) as well as cases in scope of redirection and substituion in A&E attendances (`r scales::percent(am_analysis_results[[1,3]]-1, accuracy = 0.01)`) showed a lower growth rate than cases considered out of the scope of mitigation.
 
-Activity that might have been mitigated via either redirection/substitution or via prevention grew at a faster rate than non-mitigatable activity.
+Activity that might have been mitigated via prevention in elective admissions (`r scales::percent(am_analysis_results[[2,3]]-1, accuracy = 0.01)`) and non-elective admissions (`r scales::percent(am_analysis_results[[4,3]]-1, accuracy = 0.01)`) as well as activity in scope of mitigation via redirection and substitution in non-elective admissions (`r scales::percent(am_analysis_results[[5,3]]-1, accuracy = 0.01)`) grew at a faster rate than non-mitigatable activity.
 
-This might indicate reductions between 2011 and 2019 in levels of service required to mitigate hospital activity in these ways, i.e. public health interventions, community, primary and mental health services.
+This might indicate reductions between 2013 and 2019 in levels of service required to mitigate hospital activity in these ways, i.e. public health interventions, community, primary and mental health services.
 
 ## Limitations
 
