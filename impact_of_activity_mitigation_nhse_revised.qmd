@@ -234,9 +234,8 @@ activity_mitigators_gam_data <- full_join(ons_population_series_3, hospital_acti
   filter(between(year, 2011, 2019)) |>
   ungroup()
 
-# add in the yearN (number of years since 2011), and population_share variable
+# add in the population_share variable
 activity_mitigators_gam_data <- activity_mitigators_gam_data |>
-  mutate(yearN = year - 2011) |>
   group_by( pod) |>
   mutate(population_share = population / mean(population)) |>
   ungroup()
@@ -254,7 +253,7 @@ activity_mitigators_gam_data_split$IpMat <- NULL
 # Function that fits the GAM model and extracts exponentiated coefficients and CIs, adding an identifier
 fit_and_extract_am <- function(df, df_name) {
   # Fit the GAM model
-  model <- gam(activity ~s(age, by = sex_mitigatable) + sex + mitigatable + yearN + yearN:mitigatable + offset(log(population)),
+  model <- gam(activity ~s(age, by = sex_mitigatable) + sex + mitigatable + year + year:mitigatable + offset(log(population)),
                family = nb(link = "log"),
                weights = population_share,
                data = df)
@@ -264,9 +263,9 @@ fit_and_extract_am <- function(df, df_name) {
   
   # Filter to the relevant rows and do the manipulations
   interaction_rows <- coefs |> 
-    filter(term %in% c("mitigatableprev:yearN",
-                       "mitigatablerati:yearN",
-                       "mitigatablereSu:yearN")) |>
+    filter(term %in% c("mitigatableprev:year",
+                       "mitigatablerati:year",
+                       "mitigatablereSu:year")) |>
     mutate(activity_mitigator = case_when(grepl("prev", term) ~ "prev",
                                           grepl("rati", term) ~ "rati",
                                           grepl("reSu", term) ~ "reSu",
