@@ -192,8 +192,11 @@ ons_population_series_3 <- ons_population_series_2 |>
 #| message: false
 #| warning: false
 
-# recoding the small volume mitigatable categories
 hospitalActivity_Df_adj <- hospitalActivity_Df |>
+  filter(!(pod == "edAtt" & between(yr,2011,2012)))
+
+# recoding the small volume mitigatable categories
+hospitalActivity_Df_adj <- hospitalActivity_Df_adj |>
   mutate(
     mitigatable = case_when((pod=="IpElec" | pod=="IpMat") & mitigatable == "reSu" ~ "none",
                             pod=="IpMat" & mitigatable == "prev" ~ "none",
