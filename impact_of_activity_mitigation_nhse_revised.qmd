@@ -419,11 +419,12 @@ am_analysis_results |>
 
 We can see that results do not conform to expectations.
 
-Only cases in scope of the mitigation via rationing showed a lower growth rate than cases considered out of the scope of mitigation. This was specifically for inpatient elective spells (`r scales::percent(am_analysis_results[[3,3]]-1, accuracy = 0.01)`) and outpatient attendances (`r scales::percent(am_analysis_results[[6,3]]-1, accuracy = 0.01)`).
+Only cases in scope of the mitigation via rationing in inpatient elective spells (`r scales::percent(am_analysis_results[[3,3]]-1, accuracy = 0.01)` ) and outpatient attendances (`r scales::percent(am_analysis_results[[6,3]]-1, accuracy = 0.01)`) as well as cases in scope of redirection and substituion in A&E attendances (`r scales::percent(am_analysis_results[[1,3]]-1, accuracy = 0.01)`) showed a lower growth rate than cases considered out of the scope of mitigation.
 
-Activity that might have been mitigated via either redirection/substitution or via prevention grew at a faster rate than non-mitigatable activity.
+Activity that might have been mitigated via prevention in elective admissions (`r scales::percent(am_analysis_results[[2,3]]-1, accuracy = 0.01)`) and non-elective admissions (`r scales::percent(am_analysis_results[[4,3]]-1, accuracy = 0.01)`) as well as activity in scope of mitigation via redirection and substitution in non-elective admissions (`r scales::percent(am_analysis_results[[5,3]]-1, accuracy = 0.01)`) grew at a faster rate than non-mitigatable activity.
 
 This might indicate reductions between 2011 and 2019 in levels of service required to mitigate hospital activity in these ways, i.e. public health interventions, community, primary and mental health services.
+
 
 ## Limitations
 
