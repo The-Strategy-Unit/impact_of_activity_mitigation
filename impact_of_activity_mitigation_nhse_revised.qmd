@@ -425,7 +425,6 @@ Activity that might have been mitigated via prevention in elective admissions (`
 
 This might indicate reductions between 2011 and 2019 in levels of service required to mitigate hospital activity in these ways, i.e. public health interventions, community, primary and mental health services.
 
-
 ## Limitations
 
 Our conclusions are contingent on our assumption that, having controlled for differences in the age and sex structure of population, activity mitigation is the only driver of differences in growth rates between mitigatable and non-mitigatable activity.
