@@ -398,6 +398,8 @@ activity_mitigators_gam_data |>
 
 The table below shows the exponentiated coefficients for the interaction term between mitigation type and year. This represents the difference in the growth rate per annum for mitigatable activity relative to non-mitigatable activity.
 
+The full, un-exponentiated model results are available on request in the file "full_model_coefs.xlsx".
+
 ```{r am_gam_results}
 am_analysis_results |>
   pod_lengthener_fn() |>
