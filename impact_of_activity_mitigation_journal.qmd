@@ -122,7 +122,7 @@ pod_lengthener_fn <- function(df) {
                          pod == "IpEmer" ~ "Non-elective admission",
                          pod == "IpMat" ~ "Maternity admission",
                          pod == "opAtt" ~ "Outpatient attendance",
-                         pod == "edAtt" ~ "A&E attendance",
+                         pod == "edAtt" ~ "ED attendance",
                          TRUE ~ NA_character_
                          )
     ) |>
@@ -131,7 +131,7 @@ pod_lengthener_fn <- function(df) {
                                         "Non-elective admission",
                                         "Maternity admission",
                                         "Outpatient attendance",
-                                        "A&E attendance"
+                                        "ED attendance"
                                         )
                              )
     )
@@ -306,7 +306,7 @@ Non-elective admissions mostly fall in scope of mitigation via re-direction and 
 
 Outpatient attendances are largely in scope of mitigation via de-adoption, with a minority falling out of scope of mitigation.
 
-And A&E attendances have a generally small majority falling out of scope mitigation, with the remainder falling in scope of mitigation via redirection and substitution.
+And ED attendances have a generally small majority falling out of scope mitigation, with the remainder falling in scope of mitigation via redirection and substitution.
 
 ```{r am_trend_plot}
 #| warning: false
@@ -422,7 +422,7 @@ am_analysis_results |>
 
 We can see that results do not conform to expectations.
 
-Only cases in scope of the mitigation via de-adoption in inpatient elective spells (`r scales::percent(am_analysis_results[[3,3]]-1, accuracy = 0.01)` ) and outpatient attendances (`r scales::percent(am_analysis_results[[6,3]]-1, accuracy = 0.01)`) as well as cases in scope of redirection and substituion in A&E attendances (`r scales::percent(am_analysis_results[[1,3]]-1, accuracy = 0.01)`) showed a lower growth rate than cases considered out of the scope of mitigation.
+Only cases in scope of the mitigation via de-adoption in inpatient elective spells (`r scales::percent(am_analysis_results[[3,3]]-1, accuracy = 0.01)` ) and outpatient attendances (`r scales::percent(am_analysis_results[[6,3]]-1, accuracy = 0.01)`) as well as cases in scope of redirection and substituion in ED attendances (`r scales::percent(am_analysis_results[[1,3]]-1, accuracy = 0.01)`) showed a lower growth rate than cases considered out of the scope of mitigation.
 
 Activity that might have been mitigated via prevention in elective admissions (`r scales::percent(am_analysis_results[[2,3]]-1, accuracy = 0.01)`) and non-elective admissions (`r scales::percent(am_analysis_results[[4,3]]-1, accuracy = 0.01)`) as well as activity in scope of mitigation via redirection and substitution in non-elective admissions (`r scales::percent(am_analysis_results[[5,3]]-1, accuracy = 0.01)`) grew at a faster rate than non-mitigatable activity.
 
