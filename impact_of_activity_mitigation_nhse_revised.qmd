@@ -39,7 +39,7 @@ We do this first by defining a subset of activity that might plausibly be mitiga
 
 i.  prevention and public health initiatives - this might include activity that could be attributed to smoking, alcohol consumption, obesity of falls;
 ii. redirection of activity to out-of-hospital settings or the substitution of hospital activity for some alternative out-of-hospital intervention - this might include ambulatory care sensitive admissions, mental health admissions that could be avoided with psychiatric liaison, admissions of frail older people, low acuity admissions etc; and
-iii. rationing of low value activities, such as tonsillectomies, grommets, and unnecessary follow-up outpatient attendances.
+iii. de-adoption of low value activities, such as tonsillectomies, grommets, and unnecessary follow-up outpatient attendances.
 
 **If activity migration is successful, then, having controlled for differences in the size and age-sex structure of the population, we might expect that the activity that we have identified as in scope of mitigation might grow at slower rate than non-mitigatable activity. This is the theory that we will test in this paper.**
 
@@ -49,14 +49,14 @@ iii. rationing of low value activities, such as tonsillectomies, grommets, and u
 
 ### Hospital activity data
 
-This analysis used data from Hospital Episode Statistics (HES), rather than Secondary Uses Service (SUS). Whilst these two sources are representations of the same underlying activity, derived activity counts can differ as a result of variation in data curation, inclusion/exclusion criteria, and derived fields. We extract activity counts from HES by year, age (integer), sex, point of delivery (inpatient elective spells, inpatient emergency spells, inpatient maternity spells, outpatient attendances and ED attendances), and whether / how the activity is mitigatable (none, via prevention, via rationing, and via redirection/substitution).
+This analysis used data from Hospital Episode Statistics (HES), rather than Secondary Uses Service (SUS). Whilst these two sources are representations of the same underlying activity, derived activity counts can differ as a result of variation in data curation, inclusion/exclusion criteria, and derived fields. We extract activity counts from HES by year, age (integer), sex, point of delivery (inpatient elective spells, inpatient emergency spells, inpatient maternity spells, outpatient attendances and ED attendances), and whether / how the activity is mitigatable (none, via prevention, via de-adoption, and via redirection/substitution).
 
 We define whether and how a unit of hospital of activity is mitigatable, using a series of encoded rules.  In some cases these rules are derived from published sources (e.g. ambulatory care sensitive admissions, alcohol attributable admissions, interventions with limited evidence). In other cases, code rules have been developed by the Strategy Unit as part of its work to support the New Hospitals Programme (e.g. end of life care admissions, mental health admissions via ED). These rule sets and their provenance are set out in detail [here](https://connect.strategyunitwm.nhs.uk/nhp/documentation/).
 
 The activity subsets were assigned to mitigation types as follows:
 
 +----------------------------+---------------------------------------------+---------------------------------------------------+
-| **Prevention**             | **Rationing**                               | **Redirection / substitution**                    |
+| **Prevention**             | **De-adoption**                             | **Redirection / substitution**                    |
 +----------------------------+---------------------------------------------+---------------------------------------------------+
 | Alcohol related admissions | Interventions with limited evidence         | Ambulatory care sensitive admissions              |
 |                            |                                             |                                                   |
@@ -124,7 +124,7 @@ pod_lengthener_fn <- function(df) {
                          pod == "IpEmer" ~ "Non-elective admission",
                          pod == "IpMat" ~ "Maternity admission",
                          pod == "opAtt" ~ "Outpatient attendance",
-                         pod == "edAtt" ~ "A&E attendance",
+                         pod == "edAtt" ~ "ED attendance",
                          TRUE ~ NA_character_
                          )
     ) |>
@@ -133,7 +133,7 @@ pod_lengthener_fn <- function(df) {
                                         "Non-elective admission",
                                         "Maternity admission",
                                         "Outpatient attendance",
-                                        "A&E attendance"
+                                        "ED attendance"
                                         )
                              )
     )
@@ -149,7 +149,7 @@ mitigator_lengthener_fn <- function(df) {
   df |> mutate(
     mitigatable_long = case_when(mitigatable=="none" ~ "Not mitigatable",
                                  mitigatable=="prev" ~ "Mitigatable via prevention",
-                                 mitigatable=="rati" ~ "Mitigatable via rationing",
+                                 mitigatable=="rati" ~ "Mitigatable via de-adoption",
                                  mitigatable=="reSu" ~ "Mitigatable via redirection & substitution",
                                  TRUE ~ NA_character_
                                  )
@@ -299,13 +299,13 @@ am_analysis_results <- bind_rows(am_analysis_results)
 
 The chart below shows the breakdown of total activity for each point of delivery by mitigation class.
 
-We can see that the vast majority of elective admissions are considered out of scope of activity mitigation, with a small minority being in scope of mitigation via prevention and rationing.
+We can see that the vast majority of elective admissions are considered out of scope of activity mitigation, with a small minority being in scope of mitigation via prevention and de-adoption.
 
 Non-elective admissions mostly fall in scope of mitigation via re-direction and substitution, with this proportion increasing over the study period; a small minority fall in scope of mitigation via prevention, and a stable minority of around 2m fall out of scope of mitigation.
 
-Outpatient attendances are largely in scope of mitigation via rationing, with a minority falling out of scope of mitigation.
+Outpatient attendances are largely in scope of mitigation via de-adoption, with a minority falling out of scope of mitigation.
 
-And A&E attendances have a generally small majority falling out of scope mitigation, with the remainder falling in scope of mitigation via redirection and substitution.
+And ED attendances have a generally small majority falling out of scope mitigation, with the remainder falling in scope of mitigation via redirection and substitution.
 
 ```{r am_trend_plot}
 #| warning: false
@@ -333,7 +333,7 @@ hospitalActivity_Df_adj |>
 
 The next chart shows the activity volumes indexed to the values in the initial year of 2011.
 
-We can see that generally the numbers of admissions / attendances for activity in scope of mitigation was actually increasing at a greater rate than those out of scope. The only exceptions to this are cases in scope of mitigation via rationing for outpatient attendances and elective admissions.
+We can see that generally the numbers of admissions / attendances for activity in scope of mitigation was actually increasing at a greater rate than those out of scope. The only exceptions to this are cases in scope of mitigation via de-adoption for outpatient attendances and elective admissions.
 
 ```{r am_trend_plot_indexed}
 #| warning: false
@@ -402,7 +402,7 @@ am_analysis_results |>
   pod_lengthener_fn() |>
   mutate(mitigatable_long = case_when(activity_mitigator=="none" ~ "Not mitigated",
                                       activity_mitigator=="prev" ~ "Prevention",
-                                      activity_mitigator=="rati" ~ "Rationing",
+                                      activity_mitigator=="rati" ~ "De-adoption",
                                       activity_mitigator=="reSu" ~ "Redirection & substitution",
                                       TRUE ~ NA_character_)) |>
   dplyr::select(pod_long, mitigatable_long, growth, lower_ci, upper_ci) |>
@@ -419,7 +419,7 @@ am_analysis_results |>
 
 We can see that results do not conform to expectations.
 
-Only cases in scope of the mitigation via rationing in inpatient elective spells (`r scales::percent(am_analysis_results[[3,3]]-1, accuracy = 0.01)` ) and outpatient attendances (`r scales::percent(am_analysis_results[[6,3]]-1, accuracy = 0.01)`) as well as cases in scope of redirection and substituion in A&E attendances (`r scales::percent(am_analysis_results[[1,3]]-1, accuracy = 0.01)`) showed a lower growth rate than cases considered out of the scope of mitigation.
+Only cases in scope of the mitigation via de-adoption in inpatient elective spells (`r scales::percent(am_analysis_results[[3,3]]-1, accuracy = 0.01)` ) and outpatient attendances (`r scales::percent(am_analysis_results[[6,3]]-1, accuracy = 0.01)`) as well as cases in scope of redirection and substituion in ED attendances (`r scales::percent(am_analysis_results[[1,3]]-1, accuracy = 0.01)`) showed a lower growth rate than cases considered out of the scope of mitigation.
 
 Activity that might have been mitigated via prevention in elective admissions (`r scales::percent(am_analysis_results[[2,3]]-1, accuracy = 0.01)`) and non-elective admissions (`r scales::percent(am_analysis_results[[4,3]]-1, accuracy = 0.01)`) as well as activity in scope of mitigation via redirection and substitution in non-elective admissions (`r scales::percent(am_analysis_results[[5,3]]-1, accuracy = 0.01)`) grew at a faster rate than non-mitigatable activity.
 
@@ -463,7 +463,7 @@ left outer join [StrategicWorking].[dbo].[sw_ip_mitigatable_prevention] ipPrev
 on ip.EPIKEY = ipPrev.EPIKEY
 and ip.FYEAR = ipPrev.fyear
 
-left outer join [StrategicWorking].[dbo].[sw_ip_mitigatable_rationing] ipRati
+left outer join [StrategicWorking].[dbo].[sw_ip_mitigatable_de-adoption] ipRati
 on ip.EPIKEY = ipRati.EPIKEY
 and ip.FYEAR = ipRati.fyear
 
@@ -521,7 +521,7 @@ COUNT(*) as activity
 
 from [nhp_modelling].[outpatients] op
 
-left outer join [StrategicWorking].[dbo].[sw_op_mitigatable_rationing] opRati
+left outer join [StrategicWorking].[dbo].[sw_op_mitigatable_de-adoption] opRati
 on op.attendkey = opRati.attendkey
 and op.FYEAR = opRati.fyear
 
