@@ -395,33 +395,95 @@ activity_mitigators_gam_data |>
 
 ## Models
 
-The table below shows the exponentiated coefficients for the interaction term between mitigation type and year. This represents the difference in the growth rate per annum for mitigatable activity relative to non-mitigatable activity.
+```{r create_final_table}
+#| include: false
+# Final function ----------------------------------------------------------
+extract_model_estimates <- function(tidy_results) {
+  tidy_results |> 
+    mutate(point_estimate = scales::percent(exp(estimate) - 1, accuracy = 0.01),
+           lower_ci = scales::percent(exp(estimate - 1.96 * std.error) - 1, accuracy = 0.01),
+           higher_ci = scales::percent(exp(estimate + 1.96 * std.error) - 1, accuracy = 0.01),
+           value = paste0(point_estimate, " (", lower_ci, ", ", higher_ci, ")")) 
+}
+
+convert_term_names <- function(data) {
+  data |> mutate(
+    term = case_when(
+      term == "year" ~ "none",
+      grepl("prev", term) ~ "prev",
+      grepl("rati", term) ~ "rati",
+      grepl("reSu", term) ~ "reSu",
+      TRUE ~ NA_character_))
+}
+
+get_combined_terms <- function(model, term) {
+  broom::tidy(multcomp::glht(model, paste0("year + ", term, " = 0")))
+}
+
+extract_total_model_results <- function(df, df_name) {
+  gam <- gam(activity ~ s(age, by = sex_mitigatable) + sex + mitigatable + year + year:mitigatable + offset(log(population)),
+             family = nb(link = "log"),
+             weights = population_share,
+             data = df)
+  
+  model_results <- broom::tidy(gam, parametric = TRUE)
+  
+  terms <- model_results  |> 
+    filter(term %in% c("year",variable_names)) |> 
+    convert_term_names() |> 
+    mutate(name = if_else(term == "none",
+                          "Growth p.a.",
+                          "Difference in growth rate p.a.")) |> 
+    extract_model_estimates() |> 
+    dplyr::select(term, name, value) 
+  
+  coefficients_of_interest <- model_results$term[model_results$term %in% variable_names]
+  
+  comb_model_results <- map_dfr(coefficients_of_interest, ~get_combined_terms(gam, .))
+  
+  comb_terms <- comb_model_results |> 
+    mutate(name = "Growth p.a.") |> 
+    extract_model_estimates()  |> 
+    dplyr::select(term = contrast, name, value) |> 
+    convert_term_names()
+  
+  bind_rows(terms, comb_terms) |> 
+    pivot_wider() |> 
+    mutate(pod=df_name, .before = 1)
+}
+
+variable_names <- c("mitigatableprev:year",
+                    "mitigatablerati:year",
+                    "mitigatablereSu:year")
+
+extract_total_model_results(activity_mitigators_gam_data_split$IpEmer, "IpEmer")
+
+df_names <- names(activity_mitigators_gam_data_split)
+
+# Use map2 from purrr to pass both the data frames and their names
+total_model_results <- map2(activity_mitigators_gam_data_split, df_names, extract_total_model_results) |> 
+  bind_rows() 
+```
+
+The table below shows the results of this analysis. The third column presents the age-sex adjusted growth rate (i.e. non-demographic growth) for each combination of point of delivery and mitigation class. The fourth column presents the difference in annual growth for each mitigation class relative to the counterfactual of cases outside the purview of mitigation.
 
 ```{r am_gam_results}
-am_analysis_results |>
-  pod_lengthener_fn() |>
-  mutate(mitigatable_long = case_when(activity_mitigator=="none" ~ "Not mitigated",
-                                      activity_mitigator=="prev" ~ "Prevention",
-                                      activity_mitigator=="rati" ~ "De-adoption",
-                                      activity_mitigator=="reSu" ~ "Redirection & substitution",
-                                      TRUE ~ NA_character_)) |>
-  dplyr::select(pod_long, mitigatable_long, growth, lower_ci, upper_ci) |>
-  mutate_if(is.numeric, ~scales::percent(.x-1, accuracy = 0.01)) |>
-  kable(caption = "Estimated impacts of activity mitigators by point of delivery and type",
-        col.names = c("Point of delivery",
-                      "Mitigation type",
-                      "Difference in growth p.a.",
-                      "Lower 95% CI",
-                      "Upper 95% CI"))
+total_model_results |> 
+  rename(mitigatable = term) |> 
+  mitigator_lengthener_fn() |> 
+  pod_lengthener_fn() |> 
+  dplyr::select(`Point of delivery` = pod_long,
+                `Mitigation` = mitigatable_long,
+                `Growth p.a.`,
+                `Difference in growth rate p.a.`) |> 
+  knitr::kable()
 ```
 
 # Conclusions
 
 We can see that results do not conform to expectations.
 
-Only cases in scope of the mitigation via de-adoption in inpatient elective spells (`r scales::percent(am_analysis_results[[3,3]]-1, accuracy = 0.01)` ) and outpatient attendances (`r scales::percent(am_analysis_results[[6,3]]-1, accuracy = 0.01)`) as well as cases in scope of redirection and substituion in ED attendances (`r scales::percent(am_analysis_results[[1,3]]-1, accuracy = 0.01)`) showed a lower growth rate than cases considered out of the scope of mitigation.
-
-Activity that might have been mitigated via prevention in elective admissions (`r scales::percent(am_analysis_results[[2,3]]-1, accuracy = 0.01)`) and non-elective admissions (`r scales::percent(am_analysis_results[[4,3]]-1, accuracy = 0.01)`) as well as activity in scope of mitigation via redirection and substitution in non-elective admissions (`r scales::percent(am_analysis_results[[5,3]]-1, accuracy = 0.01)`) grew at a faster rate than non-mitigatable activity.
+Activity in the purview of de-adoption grew at a slower rate than usual activity by -2.11% (-2.95% to -1.26%) for elective admissions and -2.56% (-2.81% to -2.31%) for outpatient attendances per annum. ED attendances in the purview of redirection/substitution grew at a slower rate, by -0.39% (-0.74% to -0.04%) per annum than usual activity. Elective and non-elective admissions in the purview of prevention grew at a faster rate than usual activity, by 2.17% (1.29% to 3.06%) and 0.67% (-0.01% to 1.36%) per annum respectively. Non-elective admissions in the purview of redirection/substitution grew at a faster rate, by 3.61% (2.92% to 4.32%) per annum than usual activity.
 
 This might indicate reductions between 2011 and 2019 in levels of service required to mitigate hospital activity in these ways, i.e. public health interventions, community, primary and mental health services.
 
