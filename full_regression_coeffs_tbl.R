@@ -5,19 +5,22 @@ extract_model_coefs <- function(df, df_name) {
                weights = population_share,
                data = df)
   
-  # Extract the coefficients
-  coefs <- broom::tidy(model, parametric = TRUE)
+  # Extract the parametric coefficients
+  coefs_parametric <- broom::tidy(model, parametric = TRUE)
   
   # Filter to the relevant rows and do the manipulations
-  coefs <- coefs |>
+  coefs_parametric <- coefs_parametric |>
     mutate(pod = df_name,
-           central_estimate = exp(estimate),
-           confidence_interval_lower = exp(estimate - 1.96 * std.error),
-           confidence_interval_higher = exp(estimate + 1.96 * std.error),
+           parametric = "parametric",
+           central_estimate = estimate,
+           confidence_interval_95pc_lower = estimate - 1.96 * std.error,
+           confidence_interval_95pc_higher = estimate + 1.96 * std.error,
            p.value = p.value) |>
-    dplyr::select(pod, term, central_estimate, confidence_interval_lower, confidence_interval_higher, p.value)
-
+    dplyr::select(pod, parametric, term, central_estimate, confidence_interval_95pc_lower, confidence_interval_95pc_higher, p.value)
+  
+  
 }
+
 
 # Names of the data frames in the list
 df_names <- names(activity_mitigators_gam_data_split)
@@ -25,8 +28,6 @@ df_names <- names(activity_mitigators_gam_data_split)
 # Use map2 from purrr to pass both the data frames and their names
 model_coefs <- map2(activity_mitigators_gam_data_split, df_names, extract_model_coefs)
 
-# Combine all results into a single data frame
-model_coefs <- bind_rows(model_coefs)
 
-# write to csv
-write.csv(model_coefs, file="full_model_coefs.csv")
+# write the tables to a multi-worksheet workbook
+openxlsx::write.xlsx(model_coefs, file = "full_model_coefs.xlsx")
