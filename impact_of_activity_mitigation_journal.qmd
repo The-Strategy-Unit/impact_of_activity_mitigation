@@ -1,5 +1,5 @@
 ---
-title: "Estimating the impacts of activity mitigation efforts on activity growth | 2011-2019"
+title: "Estimating the impacts of activity mitigation efforts on activity growth | 2013-2019"
 subtitle: "Preliminary analysis to support the New Hospitals Programme"
 author: "Gabriel Hobro and Steven Wyatt"
 date: "November 2023"
@@ -33,7 +33,7 @@ library(mgcv)
 
 Health systems commonly attempt to limit unnecessary or avoidable hospital activity, as a means of alleviating pressure on hospitals, controlling commissioner costs, and as a by-product of efforts to improve population health.
 
-Forecasting the impact of activity mitigation is a critical task for Trusts participating in the New Hospitals Programme. Given constraints on capital budgets it can be tempting to overstate the impact of activity mitigation to offset the many factors that will increases demand (population growth and aging, new medical technologies, etc). One way to minimise this risk of overstating the potential for activity mitigation is to set assumptions in light of the impact of historical efforts to mitigate activity. In this paper we attempt to measure the extent to which health systems succeeded in mitigating hospital activity over the period from 2011 to 2019. Activity mitigation was a constant feature of health policy during this period, via for example, QIPP (Quality, Improvement, Productivity and Prevention), the Better Care Fund, and New Models of Care Vanguard Programme.
+Forecasting the impact of activity mitigation is a critical task for Trusts participating in the New Hospitals Programme. Given constraints on capital budgets it can be tempting to overstate the impact of activity mitigation to offset the many factors that will increases demand (population growth and aging, new medical technologies, etc). One way to minimise this risk of overstating the potential for activity mitigation is to set assumptions in light of the impact of historical efforts to mitigate activity. In this paper we attempt to measure the extent to which health systems succeeded in mitigating hospital activity over the period from 2013 to 2019. Activity mitigation was a constant feature of health policy during this period, via for example, QIPP (Quality, Improvement, Productivity and Prevention), the Better Care Fund, and New Models of Care Vanguard Programme.
 
 We do this first by defining a subset of activity that might plausibly be mitigated by one of three mechanisms:
 
@@ -181,19 +181,24 @@ ons_population_series_2 <- ons_population_series_1 |>
                values_to = "population") |>
   mutate(year = as.numeric(str_extract(year, "\\d{4}")))
 
-# get the national figures
+# get the national figures and filter to 2013 onwards
 ons_population_series_3 <- ons_population_series_2 |>
   group_by(country, sex, age, year) |>
   summarise(population = sum(population)) |>
-  filter(country == "E")
+  filter(country == "E", year >= 2013)
 ```
 
 ```{r am_analysis}
 #| message: false
 #| warning: false
 
+
+#  filtering to years from 2013
+hospitalActivity_Df_adj <- hospitalActivity_Df |> 
+  filter(yr >= 2013)
+
 # recoding the small volume mitigatable categories
-hospitalActivity_Df_adj <- hospitalActivity_Df |>
+hospitalActivity_Df_adj <- hospitalActivity_Df_adj |>
   mutate(
     mitigatable = case_when((pod=="IpElec" | pod=="IpMat") & mitigatable == "reSu" ~ "none",
                             pod=="IpMat" & mitigatable == "prev" ~ "none",
@@ -231,12 +236,12 @@ hospital_activity_am_gam_input <- hospitalActivity_Df_adj |>
 # create the combined data
 activity_mitigators_gam_data <- full_join(ons_population_series_3, hospital_activity_am_gam_input,
                           by = c("age", "year", "sex")) |>
-  filter(between(year, 2011, 2019)) |>
+  filter(between(year, 2013, 2019)) |>
   ungroup()
 
-# add in the yearN (number of years since 2011), and population_share variable
+# add in the yearN (number of years since 2013), and population_share variable
 activity_mitigators_gam_data <- activity_mitigators_gam_data |>
-  mutate(yearN = year - 2011) |>
+  mutate(yearN = year - 2013) |>
   group_by( pod) |>
   mutate(population_share = population / mean(population)) |>
   ungroup()
@@ -327,7 +332,7 @@ hospitalActivity_Df_adj |>
   NHSRtheme::scale_fill_nhs()
 ```
 
-The next chart shows the activity volumes indexed to the values in the initial year of 2011.
+The next chart shows the activity volumes indexed to the values in the initial year of 2013.
 
 We can see that generally the numbers of admissions / attendances for activity in scope of mitigation was actually increasing at a greater rate than those out of scope. The only exceptions to this are cases in scope of mitigation via de-adoption for outpatient attendances and elective admissions.
 
@@ -391,35 +396,110 @@ activity_mitigators_gam_data |>
 
 ## Models
 
-The table below shows the exponentiated coefficients for the interaction term between mitigation type and year. This represents the difference in the growth rate per annum for mitigatable activity relative to non-mitigatable activity.
+```{r create_final_table}
+#| include: false
+# Final function ----------------------------------------------------------
+extract_model_estimates <- function(tidy_results) {
+  tidy_results |> 
+    mutate(point_estimate = scales::percent(exp(estimate) - 1, accuracy = 0.01),
+           lower_ci = scales::percent(exp(estimate - 1.96 * std.error) - 1, accuracy = 0.01),
+           higher_ci = scales::percent(exp(estimate + 1.96 * std.error) - 1, accuracy = 0.01),
+           value = paste0(point_estimate, " (", lower_ci, ", ", higher_ci, ")")) 
+}
+
+
+convert_term_names <- function(data) {
+  data |> mutate(
+    term = case_when(
+      term == "year" ~ "none",
+      grepl("prev", term) ~ "prev",
+      grepl("rati", term) ~ "rati",
+      grepl("reSu", term) ~ "reSu",
+      TRUE ~ NA_character_))
+}
+
+
+get_combined_terms <- function(model, term) {
+  broom::tidy(multcomp::glht(model, paste0("year + ", term, " = 0")))
+}
+
+
+extract_total_model_results <- function(df, df_name) {
+  gam <- gam(activity ~ s(age, by = sex_mitigatable) + sex + mitigatable + year + year:mitigatable + offset(log(population)),
+             family = nb(link = "log"),
+             weights = population_share,
+             data = df)
+  
+  model_results <- broom::tidy(gam, parametric = TRUE)
+  
+  terms <- model_results  |> 
+    filter(term %in% c("year",variable_names)) |> 
+    convert_term_names() |> 
+    mutate(name = if_else(term == "none",
+                          "Growth p.a.",
+                          "Difference in growth rate p.a.")) |> 
+    extract_model_estimates() |> 
+    dplyr::select(term, name, value) 
+  
+  coefficients_of_interest <- model_results$term[model_results$term %in% variable_names]
+  
+  comb_model_results <- map_dfr(coefficients_of_interest, ~get_combined_terms(gam, .))
+  
+  comb_terms <- comb_model_results |> 
+    mutate(name = "Growth p.a.") |> 
+    extract_model_estimates()  |> 
+    dplyr::select(term = contrast, name, value) |> 
+    convert_term_names()
+  
+  bind_rows(terms, comb_terms) |> 
+    pivot_wider() |> 
+    mutate(pod=df_name, .before = 1)
+}
+
+
+variable_names <- c("mitigatableprev:year",
+                    "mitigatablerati:year",
+                    "mitigatablereSu:year")
+
+
+extract_total_model_results(activity_mitigators_gam_data_split$IpEmer, "IpEmer")
+
+
+df_names <- names(activity_mitigators_gam_data_split)
+
+
+# Use map2 from purrr to pass both the data frames and their names
+total_model_results <- map2(activity_mitigators_gam_data_split, df_names, extract_total_model_results) |> 
+  bind_rows() 
+```
+
+
+The table below shows the results of this analysis. The third column presents the age-sex adjusted growth rate (i.e. non-demographic growth) for each combination of point of delivery and mitigation class. The fourth column presents the difference in annual growth for each mitigation class relative to the counterfactual of cases outside the purview of mitigation.
+
+The full, un-exponentiated model results are available on request in the file "full_model_coefs.xlsx".
 
 ```{r am_gam_results}
-am_analysis_results |>
-  pod_lengthener_fn() |>
-  mutate(mitigatable_long = case_when(activity_mitigator=="none" ~ "Not mitigated",
-                                      activity_mitigator=="prev" ~ "Prevention",
-                                      activity_mitigator=="rati" ~ "De-adoption",
-                                      activity_mitigator=="reSu" ~ "Redirection & substitution",
-                                      TRUE ~ NA_character_)) |>
-  dplyr::select(pod_long, mitigatable_long, growth, lower_ci, upper_ci) |>
-  mutate_if(is.numeric, ~scales::percent(.x-1, accuracy = 0.01)) |>
-  kable(caption = "Estimated impacts of activity mitigators by point of delivery and type",
-        col.names = c("Point of delivery",
-                      "Mitigation type",
-                      "Difference in growth p.a.",
-                      "Lower 95% CI",
-                      "Upper 95% CI"))
+
+total_model_results |> 
+  rename(mitigatable = term) |> 
+  mitigator_lengthener_fn() |> 
+  pod_lengthener_fn() |> 
+  dplyr::select(`Point of delivery` = pod_long,
+                `Mitigation` = mitigatable_long,
+                `Growth p.a.`,
+                `Difference in growth rate p.a.`) |> 
+  knitr::kable()
 ```
 
 # Conclusions
 
 We can see that results do not conform to expectations.
 
-Only cases in scope of the mitigation via de-adoption showed a lower growth rate than cases considered out of the scope of mitigation. This was specifically for inpatient elective spells (`r scales::percent(am_analysis_results[[3,3]]-1, accuracy = 0.01)`) and outpatient attendances (`r scales::percent(am_analysis_results[[6,3]]-1, accuracy = 0.01)`).
 
-Activity that might have been mitigated via either redirection/substitution or via prevention grew at a faster rate than non-mitigatable activity.
+Activity in the purview of de-adoption grew at a slower rate than usual activity by -2.62% (-3.84% to -1.39%) for elective admissions and -2.74% (-3.11% to -2.38%) for outpatient attendances per annum. ED attendances in the purview of redirection/substitution grew at a slower rate, by -0.39% (-0.74% to -0.04%) per annum than usual activity.  Elective and non-elective admissions in the purview of prevention grew at a faster rate than usual activity, by 1.39% (0.11% to 2.68%) and 1.46% (0.46% to 2.46%) per annum respectively. Non-elective admissions in the purview of redirection/substitution grew at a faster rate, by 4.52% (3.50% to 5.55%) per annum than usual activity.
 
-This might indicate reductions between 2011 and 2019 in levels of service required to mitigate hospital activity in these ways, i.e. public health interventions, community, primary and mental health services.
+
+This might indicate reductions between 2013 and 2019 in levels of service required to mitigate hospital activity in these ways, i.e. public health interventions, community, primary and mental health services.
 
 ## Limitations
 
