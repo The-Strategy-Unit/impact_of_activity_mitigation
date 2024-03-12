@@ -479,6 +479,7 @@ The table below shows the results of this analysis. The third column presents th
 The full, un-exponentiated model results are available on request in the file "full_model_coefs.xlsx".
 
 ```{r am_gam_results}
+
 total_model_results |> 
   rename(mitigatable = term) |> 
   mitigator_lengthener_fn() |> 
@@ -494,7 +495,9 @@ total_model_results |>
 
 We can see that results do not conform to expectations.
 
+
 Activity in the purview of de-adoption grew at a slower rate than usual activity by -2.62% (-3.84% to -1.39%) for elective admissions and -2.74% (-3.11% to -2.38%) for outpatient attendances per annum. ED attendances in the purview of redirection/substitution grew at a slower rate, by -0.39% (-0.74% to -0.04%) per annum than usual activity.  Elective and non-elective admissions in the purview of prevention grew at a faster rate than usual activity, by 1.39% (0.11% to 2.68%) and 1.46% (0.46% to 2.46%) per annum respectively. Non-elective admissions in the purview of redirection/substitution grew at a faster rate, by 4.52% (3.50% to 5.55%) per annum than usual activity.
+
 
 This might indicate reductions between 2013 and 2019 in levels of service required to mitigate hospital activity in these ways, i.e. public health interventions, community, primary and mental health services.
 
@@ -536,7 +539,7 @@ left outer join [StrategicWorking].[dbo].[sw_ip_mitigatable_prevention] ipPrev
 on ip.EPIKEY = ipPrev.EPIKEY
 and ip.FYEAR = ipPrev.fyear
 
-left outer join [StrategicWorking].[dbo].[sw_ip_mitigatable_rationing] ipRati
+left outer join [StrategicWorking].[dbo].[sw_ip_mitigatable_de-adoption] ipRati
 on ip.EPIKEY = ipRati.EPIKEY
 and ip.FYEAR = ipRati.fyear
 
@@ -594,7 +597,7 @@ COUNT(*) as activity
 
 from [nhp_modelling].[outpatients] op
 
-left outer join [StrategicWorking].[dbo].[sw_op_mitigatable_rationing] opRati
+left outer join [StrategicWorking].[dbo].[sw_op_mitigatable_de-adoption] opRati
 on op.attendkey = opRati.attendkey
 and op.FYEAR = opRati.fyear
 
