@@ -487,7 +487,13 @@ Activity in the purview of de-adoption grew at a slower rate than usual activity
 
 This might indicate reductions between 2011 and 2019 in levels of service required to mitigate hospital activity in these ways, i.e. public health interventions, community, primary and mental health services.
 
-## Limitations
+# Application of this analysis in healthcare planning contexts
+
+As well as providing some insight into the extent to which historical efforts to mitigate hospital activity have been successful, this analysis may also be useful in healthcare planning contexts. Future hospital activity can be thought of a function of current activity levels and the impact of various factors that might influence activity levels in the future: population change, efficiency initiatives, service reconfiguration, etc. The factors that planners find most difficult to estimate are often termed non-demographic effects, encompassing changes in medical technology, practice and patient expectations. When looking back, these can be thought of as a residual effect after other known factors are accounted for. Looking forward they might be seen as a product of health policy and funding levels. In the absence of formal forecasts, planners often use historical rates of non-demographic growth, the base rate, as estimates of future rates.
+
+A by-product of our analysis are estimates of these historical non-demographic growth rates by point of delivery for mitigatable and non-mitigatable activity. For non-elective admissions we find that these rates are higher for mitigatable activity than for non-mitigatable activity. We suggest that this is because resources that would otherwise have been used to mitigate levels of non-elective admissions (e.g., public health and community services) have been cut in the historical study period. For planning purposes, we may wish to assume that these cuts will cease. In this case, it may be more appropriate for planners to use the historical non-demographic growth rates for non-mitigable activity when estimating future rates of non-electives admissions.
+
+# Limitations
 
 Our conclusions are contingent on our assumption that, having controlled for differences in the age and sex structure of population, activity mitigation is the only driver of differences in growth rates between mitigatable and non-mitigatable activity.
 
