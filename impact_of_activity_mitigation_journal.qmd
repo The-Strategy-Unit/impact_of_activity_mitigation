@@ -2,8 +2,7 @@
 title: "Estimating the impacts of activity mitigation efforts on activity growth | 2013-2019"
 subtitle: "Preliminary analysis to support the New Hospitals Programme"
 author: "Gabriel Hobro and Steven Wyatt"
-date: "November 2023"
-date-format: "MMMM YYYY"
+date: today
 format:
   html:
     embed-resources: true
@@ -51,7 +50,12 @@ iii. de-adoption of low value activities, such as tonsillectomies, grommets, and
 
 This analysis used data from Hospital Episode Statistics (HES), rather than Secondary Uses Service (SUS). Whilst these two sources are representations of the same underlying activity, derived activity counts can differ as a result of variation in data curation, inclusion/exclusion criteria, and derived fields. We extract activity counts from HES by year, age (integer), sex, point of delivery (inpatient elective spells, inpatient emergency spells, inpatient maternity spells, outpatient attendances and ED attendances), and whether / how the activity is mitigatable (none, via prevention, via de-adoption, and via redirection/substitution).
 
-We define whether and how a unit of hospital of activity is mitigatable, using a series of encoded rules.  In some cases these rules are derived from published sources (e.g. ambulatory care sensitive admissions, alcohol attributable admissions, interventions with limited evidence). In other cases, code rules have been developed by the Strategy Unit as part of its work to support the New Hospitals Programme (e.g. end of life care admissions, mental health admissions via ED). These rule sets and their provenance are set out in detail [here](https://connect.strategyunitwm.nhs.uk/nhp/documentation/).
+We define whether and how a unit of hospital of activity is mitigatable, using a series of encoded rules.  In some cases these rules are derived from published sources (e.g. ambulatory care sensitive admissions, alcohol attributable admissions, interventions with limited evidence). In other cases, code rules have been developed by the Strategy Unit as part of its work to support the New Hospitals Programme (e.g. end of life care admissions, mental health admissions via ED).
+
+The details of this grouping of data are set out as follows:
+
+-   SQL code is set out at <https://github.com/The-Strategy-Unit/nhp_sql>.
+-   Background information and links to the sources of information used for mitigators is set out for [inpatient admissions](https://connect.strategyunitwm.nhs.uk/nhp/project_information/modelling_methodology/activity_mitigators/inpatient_activity_mitigators.html), [outpatient attendances](https://connect.strategyunitwm.nhs.uk/nhp/project_information/modelling_methodology/activity_mitigators/outpatient_activity_mitigators.html) and [ED attendances](https://connect.strategyunitwm.nhs.uk/nhp/project_information/modelling_methodology/activity_mitigators/ae_activity_mitigators.html).
 
 The activity subsets were assigned to mitigation types as follows:
 
