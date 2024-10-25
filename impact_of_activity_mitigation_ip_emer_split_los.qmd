@@ -1,0 +1,660 @@
+---
+title: "Estimating the impacts of activity mitigation efforts on activity growth | 2011-2019"
+subtitle: "Preliminary analysis to support the New Hospitals Programme"
+author: "Gabriel Hobro and Steven Wyatt"
+date: "November 2023"
+date-format: "MMMM YYYY"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    code-fold: true
+    code-summary: "Show the code"
+    fig-asp: 0.618
+editor: visual
+---
+
+```{r set_up}
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(openxlsx)
+library(readxl)
+library(kableExtra)
+library(plotly)
+library(knitr)
+library(janitor)
+library(MASS)
+library(mgcv)
+```
+
+# Background
+
+Health systems commonly attempt to limit unnecessary or avoidable hospital activity, as a means of alleviating pressure on hospitals, controlling commissioner costs, and as a by-product of efforts to improve population health.
+
+Forecasting the impact of activity mitigation is a critical task for Trusts participating in the New Hospitals Programme. Given constraints on capital budgets it can be tempting to overstate the impact of activity mitigation to offset the many factors that will increases demand (population growth and aging, new medical technologies, etc). One way to minimise this risk of overstating the potential for activity mitigation is to set assumptions in light of the impact of historical efforts to mitigate activity. In this paper we attempt to measure the extent to which health systems succeeded in mitigating hospital activity over the period from 2011 to 2019. Activity mitigation was a constant feature of health policy during this period, via for example, QIPP (Quality, Improvement, Productivity and Prevention), the Better Care Fund, and New Models of Care Vanguard Programme.
+
+We do this first by defining a subset of activity that might plausibly be mitigated by one of three mechanisms:
+
+i.  prevention and public health initiatives - this might include activity that could be attributed to smoking, alcohol consumption, obesity of falls;
+ii. redirection of activity to out-of-hospital settings or the substitution of hospital activity for some alternative out-of-hospital intervention - this might include ambulatory care sensitive admissions, mental health admissions that could be avoided with psychiatric liaison, admissions of frail older people, low acuity admissions etc; and
+iii. de-adoption of low value activities, such as tonsillectomies, grommets, and unnecessary follow-up outpatient attendances.
+
+**If activity migration is successful, then, having controlled for differences in the size and age-sex structure of the population, we might expect that the activity that we have identified as in scope of mitigation might grow at slower rate than non-mitigatable activity. This is the theory that we will test in this paper.**
+
+# Methods
+
+## Data sources
+
+### Hospital activity data
+
+This analysis used data from Hospital Episode Statistics (HES), rather than Secondary Uses Service (SUS). Whilst these two sources are representations of the same underlying activity, derived activity counts can differ as a result of variation in data curation, inclusion/exclusion criteria, and derived fields. We extract activity counts from HES by year, age (integer), sex, point of delivery (inpatient elective spells, inpatient emergency spells, inpatient maternity spells, outpatient attendances and ED attendances), and whether / how the activity is mitigatable (none, via prevention, via de-adoption, and via redirection/substitution).
+
+We define whether and how a unit of hospital of activity is mitigatable, using a series of encoded rules.  In some cases these rules are derived from published sources (e.g. ambulatory care sensitive admissions, alcohol attributable admissions, interventions with limited evidence). In other cases, code rules have been developed by the Strategy Unit as part of its work to support the New Hospitals Programme (e.g. end of life care admissions, mental health admissions via ED). These rule sets and their provenance are set out in detail [here](https://connect.strategyunitwm.nhs.uk/nhp/documentation/).
+
+The activity subsets were assigned to mitigation types as follows:
+
++----------------------------+---------------------------------------------+---------------------------------------------------+
+| **Prevention**             | **De-adoption**                             | **Redirection / substitution**                    |
++----------------------------+---------------------------------------------+---------------------------------------------------+
+| Alcohol related admissions | Interventions with limited evidence         | Ambulatory care sensitive admissions              |
+|                            |                                             |                                                   |
+| Obesity related admissions | Follow-up outpatient attendances            | Emergency re-admissions within 28 days            |
+|                            |                                             |                                                   |
+| Smoking related admissions | Consultant referred outpatient attendances. | Admission with no overnight stay and no procedure |
+|                            |                                             |                                                   |
+| Falls related admissions   |                                             | Medically unexplained symptoms admissions         |
+|                            |                                             |                                                   |
+|                            |                                             | Mental health admissions via ED                   |
+|                            |                                             |                                                   |
+|                            |                                             | Intentional self-harm admission                   |
+|                            |                                             |                                                   |
+|                            |                                             | End of life care admissions                       |
+|                            |                                             |                                                   |
+|                            |                                             | Frail elderly admissions                          |
+|                            |                                             |                                                   |
+|                            |                                             | Medicines related admissions                      |
+|                            |                                             |                                                   |
+|                            |                                             | Frequent ED attenders                             |
+|                            |                                             |                                                   |
+|                            |                                             | Patients who leave before being seen              |
+|                            |                                             |                                                   |
+|                            |                                             | Low cost discharged attendances                   |
++----------------------------+---------------------------------------------+---------------------------------------------------+
+
+**NB there is an issue with the frequent ED attenders activity subset such that it is not possible to identify instances in 2011 or 2012. As such, to ensure that the trends are not affected by this data quality issue, in the analysis for the ED attendances point of delivery, we remove these two initial years so that the analysis runs from 2013-2019.**
+
+### Population data
+
+We use mid-year population estimates from the ONS to analyse population growth. These data are publicly available at: <https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/populationestimatesforukenglandandwalesscotlandandnorthernireland>
+
+NB all ages over 90 are grouped together.
+
+## Data wrangling
+
+To avoid distortion, we recoded activity mitigation types containing small activity counts within each point of delivery. This involved recoding the redirect/substitute cases in the impatient elective and inpatient maternity points of delivery as well as the prevention cases in the inpatient maternity point of delivery. As a result of these changes, there was no mitigatable activity in the inpatient maternity point of delivery and so we exclude this from all further analysis.
+
+## Statistical methods
+
+We fitted general additive negative binomial models to our data. Negative binomial regression is used since our outcome variable is a count and we have no reason to believe that the means and standard deviations of these counts are similar. We include an offset term to allow for changes in population size and we fit thin-plate smooth terms for age separately for men and women and for each level in the mitigation type variable, to allow for the non-linear relationship between age and hospital activity. We include a term for year, sex, and mitigation type, and an interaction term between year and mitigation type. The exponentiated coefficient for the year variable, the incident risk ratio for year, represents our non-demographic growth estimate for non-mitigatable activity. The exponentiated coefficient for the year:mitigation type interaction variable indicates the difference in the growth rate between the mitigatable activity, by type, and the non-mitigatable activity. This is our quantity of interest.
+
+# Results
+
+```{r analysis_hospital_activity}
+#| message: false
+#| warning: false
+
+# loading the hospital activity data
+
+hospitalActivity_Df <- read.csv(
+  "data/nonDemogMitig_data_SplitZeroLosIpEmer_240318.csv")
+
+hospitalActivity_Df <- hospitalActivity_Df |>
+  mutate(age = if_else(age>=90, 90, age)) 
+```
+
+```{r pod_lengthener}
+#| message: false
+#| warning: false
+
+pod_lengthener_fn <- function(df) {
+  df |> mutate(
+    pod_long = case_when(pod == "IpElec" ~ "Elective admission",
+                         pod == "IpEmer_zeroLoS" ~ "Non-elective zero LoS admission",
+                         pod == "IpEmer_nonZeroLoS" ~ "Non-elective non-zero LoS admission",
+                         pod == "IpMat" ~ "Maternity admission",
+                         pod == "opAtt" ~ "Outpatient attendance",
+                         pod == "edAtt" ~ "ED attendance",
+                         TRUE ~ NA_character_
+                         )
+    ) |>
+    mutate(pod_long = factor(pod_long, 
+                             levels = c("Elective admission",
+                                        "Non-elective zero LoS admission",
+                                        "Non-elective non-zero LoS admission",
+                                        "Maternity admission",
+                                        "Outpatient attendance",
+                                        "ED attendance"
+                                        )
+                             )
+    )
+}
+
+```
+
+```{r mitigator_lengthener}
+#| message: false
+#| warning: false
+
+mitigator_lengthener_fn <- function(df) {
+  df |> mutate(
+    mitigatable_long = case_when(mitigatable=="none" ~ "Not mitigatable",
+                                 mitigatable=="prev" ~ "Mitigatable via prevention",
+                                 mitigatable=="rati" ~ "Mitigatable via de-adoption",
+                                 mitigatable=="reSu" ~ "Mitigatable via redirection & substitution",
+                                 TRUE ~ NA_character_
+                                 )
+    )
+}
+
+```
+
+```{r analysis_demographic_growth}
+#| message: false
+#| warning: false
+
+# Loading the population data
+
+# Source: https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/populationestimatesforukenglandandwalesscotlandandnorthernireland
+
+ons_population_series <- read.csv(
+  file = "data/MYEB1_detailed_population_estimates_series_UK_(2020_geog21).csv")
+  
+
+# change the sex field to be more explicit
+ons_population_series_1 <- ons_population_series |>
+  mutate(sex = case_when(sex == "1" ~ "m",
+                         sex == "2" ~ "f",
+                         TRUE ~ NA_character_))
+
+# lengthen the data (and remove the "population_" from the year)
+ons_population_series_2 <- ons_population_series_1 |>
+  pivot_longer(cols = population_2001:population_2020,
+               names_to = "year",
+               values_to = "population") |>
+  mutate(year = as.numeric(str_extract(year, "\\d{4}")))
+
+# get the national figures
+ons_population_series_3 <- ons_population_series_2 |>
+  group_by(country, sex, age, year) |>
+  summarise(population = sum(population)) |>
+  filter(country == "E")
+```
+
+```{r am_analysis}
+#| message: false
+#| warning: false
+
+hospitalActivity_Df_adj <- hospitalActivity_Df |>
+  filter(!(pod == "edAtt" & between(yr,2011,2012)))
+
+# recoding the small volume mitigatable categories
+hospitalActivity_Df_adj <- hospitalActivity_Df_adj |>
+  mutate(
+    mitigatable = case_when((pod=="IpElec" | pod=="IpMat") & mitigatable == "reSu" ~ "none",
+                            pod=="IpMat" & mitigatable == "prev" ~ "none",
+                            TRUE ~ mitigatable))
+
+# Make a concatenation of sex and mitigatable 
+hospitalActivity_Df_adj <- hospitalActivity_Df_adj |>
+  mutate(sex_mitigatable = paste(sex, mitigatable, sep = "-"))
+
+ 
+# set as a factor variable...
+hospitalActivity_Df_adj$sex_mitigatable <- factor(hospitalActivity_Df_adj$sex_mitigatable)
+
+# ...with "male-none" as the reference level
+hospitalActivity_Df_adj$sex_mitigatable <- relevel(hospitalActivity_Df_adj$sex_mitigatable,
+                                               ref = "m-none")
+
+# also set mitigatable as factor...
+hospitalActivity_Df_adj$mitigatable <- factor(hospitalActivity_Df_adj$mitigatable)
+
+# ...with "none" as the reference level
+hospitalActivity_Df_adj$mitigatable <- relevel(hospitalActivity_Df_adj$mitigatable,
+                                               ref = "none")
+
+hospital_activity_am_gam_input <- hospitalActivity_Df_adj |>
+  filter(pod !="IpMat" | (sex !="m" & between(age, 15, 49))) |>
+  group_by(year = yr,
+           age,
+           sex,
+           pod,
+           sex_mitigatable,
+           mitigatable) |>
+  summarise(activity = sum(activity))
+
+# create the combined data
+activity_mitigators_gam_data <- full_join(ons_population_series_3, hospital_activity_am_gam_input,
+                          by = c("age", "year", "sex")) |>
+  filter(between(year, 2011, 2019)) |>
+  ungroup()
+
+# add in the population_share variable
+activity_mitigators_gam_data <- activity_mitigators_gam_data |>
+  group_by( pod) |>
+  mutate(population_share = population / mean(population)) |>
+  ungroup()
+
+# split the data
+activity_mitigators_gam_data_split <- split(activity_mitigators_gam_data, activity_mitigators_gam_data$pod)
+
+# remove maternity since it has no AMs now
+activity_mitigators_gam_data_split$IpMat <- NULL
+
+
+# iteration ---------------------------------------------------------------
+
+
+# Function that fits the GAM model and extracts exponentiated coefficients and CIs, adding an identifier
+fit_and_extract_am <- function(df, df_name) {
+  # Fit the GAM model
+  model <- gam(activity ~s(age, by = sex_mitigatable) + sex + mitigatable + year + year:mitigatable + offset(log(population)),
+               family = nb(link = "log"),
+               weights = population_share,
+               data = df)
+  
+  # Extract the coefficients
+  coefs <- broom::tidy(model, parametric = TRUE)
+  
+  # Filter to the relevant rows and do the manipulations
+  interaction_rows <- coefs |> 
+    filter(term %in% c("mitigatableprev:year",
+                       "mitigatablerati:year",
+                       "mitigatablereSu:year")) |>
+    mutate(activity_mitigator = case_when(grepl("prev", term) ~ "prev",
+                                          grepl("rati", term) ~ "rati",
+                                          grepl("reSu", term) ~ "reSu",
+                                          TRUE ~ NA_character_),
+           pod = df_name,
+           growth = exp(estimate),
+           lower_ci = exp(estimate - (1.96 * std.error)),
+           upper_ci = exp(estimate + (1.96 * std.error))) |>
+    dplyr::select(pod, activity_mitigator, growth, lower_ci, upper_ci)
+
+  
+}
+
+# Names of the data frames in the list
+df_names <- names(activity_mitigators_gam_data_split)
+
+# Use map2 from purrr to pass both the data frames and their names
+am_analysis_results <- map2(activity_mitigators_gam_data_split, df_names, fit_and_extract_am)
+
+# Combine all results into a single data frame
+am_analysis_results <- bind_rows(am_analysis_results)
+
+```
+
+## Trends
+
+The chart below shows the breakdown of total activity for each point of delivery by mitigation class.
+
+We can see that the vast majority of elective admissions are considered out of scope of activity mitigation, with a small minority being in scope of mitigation via prevention and de-adoption.
+
+Non-elective admissions mostly fall in scope of mitigation via re-direction and substitution, with this proportion increasing over the study period; a small minority fall in scope of mitigation via prevention, and a stable minority of around 2m fall out of scope of mitigation.
+
+Outpatient attendances are largely in scope of mitigation via de-adoption, with a minority falling out of scope of mitigation.
+
+And ED attendances have a generally small majority falling out of scope mitigation, with the remainder falling in scope of mitigation via redirection and substitution.
+
+```{r am_trend_plot}
+#| warning: false
+#| message: false
+
+hospitalActivity_Df_adj |>
+  filter(pod %in% c("IpEmer_nonZeroLoS", "IpEmer_zeroLoS")) |>
+  #pod_lengthener_fn() |>
+  mitigator_lengthener_fn() |>
+  group_by(yr, pod, mitigatable_long) |>
+  summarise(activity = sum(activity)) |> 
+  ggplot(aes(x=yr,y=activity,fill=mitigatable_long)) +
+  geom_bar(stat = "identity") +
+  scale_y_continuous(labels = scales::comma, limits = c(0,NA)) +
+  facet_wrap(~pod, scales = "free_y") +
+  scale_x_continuous(breaks= scales::pretty_breaks()) +
+  ggtitle("Comparison of activity volumes by mitigation category and point of delivery") +
+  xlab("Year") +
+  ylab("Activity") +
+  theme(legend.position = "top", 
+        legend.title = element_blank()) +
+  guides(fill = guide_legend(nrow = 2)) +
+  NHSRtheme::scale_fill_nhs()
+```
+
+The next chart shows the activity volumes indexed to the values in the initial year of 2011.
+
+We can see that generally the numbers of admissions / attendances for activity in scope of mitigation was actually increasing at a greater rate than those out of scope. The only exceptions to this are cases in scope of mitigation via de-adoption for outpatient attendances and elective admissions.
+
+```{r am_trend_plot_indexed}
+#| warning: false
+#| message: false
+hospitalActivity_Df_adj |>
+  filter(pod %in% c("IpEmer_nonZeroLoS", "IpEmer_zeroLoS")) |>
+  #pod_lengthener_fn() |>
+  mitigator_lengthener_fn() |>
+  group_by(yr, pod, mitigatable_long) |>
+  summarise(activity = sum(activity)) |> 
+  group_by(pod, mitigatable_long) |>
+  mutate(activity = activity / first(activity)) |>
+  ggplot(aes(x=yr,y=activity,colour=mitigatable_long)) +
+  geom_line(size=1) +
+  #scale_y_continuous(labels = scales::comma, limits = c(0,NA)) +
+  facet_wrap(~pod, scales = "free_y") +
+  scale_x_continuous(breaks= scales::pretty_breaks()) +
+  ggtitle("Comparison of indexed activity volumes by mitigation category and point of delivery") +
+  xlab("Year") +
+  ylab("Indexed activity") +
+  theme(legend.position = "top", 
+        legend.title = element_blank()) +
+    guides(color = guide_legend(nrow = 2)) +
+  NHSRtheme::scale_colour_nhs()
+```
+
+## Age profiles
+
+We next review the activity rate by age for mitigated activity vs non-mitigated activity.
+
+The chart below shows this by point of delivery. We can see that whether a case falls under activity mitigators does have an effect on the relationship between age and activity rate. Thus we allow for separate thin-plate splines over this variable, as well as for sex.
+
+```{r age_profiles_mitigators}
+#| message: false
+#| warning: false
+
+# create the plot
+activity_mitigators_gam_data |>
+  filter(year==2019, pod %in% c("IpEmer_nonZeroLoS", "IpEmer_zeroLoS")) |>
+  #pod_lengthener_fn() |>
+  mutate(pod = stringr::str_wrap(pod, width = 10)) |>
+  mitigator_lengthener_fn() |>
+  group_by(age, pod, mitigatable_long) |>
+  summarise(activity = sum(activity),
+            population = sum(population)) |>
+  mutate(actRate = activity / population) |>
+  ggplot(aes(x=age,y=actRate)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::comma_format()) +
+  ggtitle("Activity rates by age in 2019, stratified by point of delivery and mitigation type") +
+  xlab("Age") +
+  ylab("Activity rate") +
+  facet_grid(rows = vars(pod),
+             cols = vars(mitigatable_long),
+             scales = "free") 
+
+
+```
+
+## Models
+
+```{r create_final_table}
+#| include: false
+# Final function ----------------------------------------------------------
+extract_model_estimates <- function(tidy_results) {
+  tidy_results |> 
+    mutate(point_estimate = scales::percent(exp(estimate) - 1, accuracy = 0.01),
+           lower_ci = scales::percent(exp(estimate - 1.96 * std.error) - 1, accuracy = 0.01),
+           higher_ci = scales::percent(exp(estimate + 1.96 * std.error) - 1, accuracy = 0.01),
+           value = paste0(point_estimate, " (", lower_ci, ", ", higher_ci, ")")) 
+}
+
+convert_term_names <- function(data) {
+  data |> mutate(
+    term = case_when(
+      term == "year" ~ "none",
+      grepl("prev", term) ~ "prev",
+      grepl("rati", term) ~ "rati",
+      grepl("reSu", term) ~ "reSu",
+      TRUE ~ NA_character_))
+}
+
+get_combined_terms <- function(model, term) {
+  broom::tidy(multcomp::glht(model, paste0("year + ", term, " = 0")))
+}
+
+extract_total_model_results <- function(df, df_name) {
+  gam <- gam(activity ~ s(age, by = sex_mitigatable) + sex + mitigatable + year + year:mitigatable + offset(log(population)),
+             family = nb(link = "log"),
+             weights = population_share,
+             data = df)
+  
+  model_results <- broom::tidy(gam, parametric = TRUE)
+  
+  terms <- model_results  |> 
+    filter(term %in% c("year",variable_names)) |> 
+    convert_term_names() |> 
+    mutate(name = if_else(term == "none",
+                          "Growth p.a.",
+                          "Difference in growth rate p.a.")) |> 
+    extract_model_estimates() |> 
+    dplyr::select(term, name, value) 
+  
+  coefficients_of_interest <- model_results$term[model_results$term %in% variable_names]
+  
+  comb_model_results <- map_dfr(coefficients_of_interest, ~get_combined_terms(gam, .))
+  
+  comb_terms <- comb_model_results |> 
+    mutate(name = "Growth p.a.") |> 
+    extract_model_estimates()  |> 
+    dplyr::select(term = contrast, name, value) |> 
+    convert_term_names()
+  
+  bind_rows(terms, comb_terms) |> 
+    pivot_wider() |> 
+    mutate(pod=df_name, .before = 1)
+}
+
+variable_names <- c("mitigatableprev:year",
+                    "mitigatablerati:year",
+                    "mitigatablereSu:year")
+
+
+df_names <- names(activity_mitigators_gam_data_split)
+
+# Use map2 from purrr to pass both the data frames and their names
+total_model_results <- map2(activity_mitigators_gam_data_split, df_names, extract_total_model_results) |> 
+  bind_rows() 
+```
+
+The table below shows the results of this analysis. The third column presents the age-sex adjusted growth rate (i.e. non-demographic growth) for each combination of point of delivery and mitigation class. The fourth column presents the difference in annual growth for each mitigation class relative to the counterfactual of cases outside the purview of mitigation.
+
+```{r am_gam_results}
+total_model_results |> 
+  rename(mitigatable = term) |> 
+  mitigator_lengthener_fn() |> 
+  pod_lengthener_fn() |> 
+  dplyr::select(`Point of delivery` = pod_long,
+                `Mitigation` = mitigatable_long,
+                `Growth p.a.`,
+                `Difference in growth rate p.a.`) |> 
+  knitr::kable()
+```
+
+# Conclusions
+
+We can see that results do not conform to expectations.
+
+Activity in the purview of de-adoption grew at a slower rate than usual activity by -2.11% (-2.95% to -1.26%) for elective admissions and -2.57% (-2.82% to -2.32%) for outpatient attendances per annum. ED attendances in the purview of redirection/substitution grew at a slower rate, by -0.39% (-0.74% to -0.04%) per annum than usual activity. Elective and 1+ day non-elective admissions in the purview of prevention grew at a faster rate than usual activity, by 2.17% (1.29% to 3.06%) and 1.09% (-0.44% to 1.75%) per annum respectively, whilst zero-day non-elective admissions grew at a slower rate than usual activity, by -2.98% (-3.73% to -2.24%). Non-elective admissions in the purview of redirection/substitution grew at a faster rate, by 1.72% (1.07% to 2.37%) and 1.02% (0.26% to 1.79%) per annum for non-zero and zero day admissions than usual activity.
+
+This might indicate reductions between 2011 and 2019 in levels of service required to mitigate hospital activity in these ways, i.e. public health interventions, community, primary and mental health services.
+
+## Limitations
+
+Our conclusions are contingent on our assumption that, having controlled for differences in the age and sex structure of population, activity mitigation is the only driver of differences in growth rates between mitigatable and non-mitigatable activity.
+
+# Appendix
+
+The following SQL script was run on the Strategy Unit's SQL Server to extract from HES the data which we use for analysing changes in hospital activity over the study period.
+
+``` sql
+use hesdata
+
+select
+
+DATEPART(YYYY, ip.admidate) as yr,
+age,
+case
+    when sex = '1' then 'm'
+    else 'f'
+    end as sex,
+case
+    when LEFT(admimeth, 1) = '1' then 'IpElec'
+    when LEFT(admimeth, 1) = '3' then 'IpMat'
+    else 'IpEmer'
+  end as pod,
+case
+    when ipPrev.EPIKEY is not null then 'prev'
+    when ipRati.EPIKEY is not null then 'rati'
+    when ipReSu.EPIKEY is not null then 'reSu'
+    else 'none'
+    end as mitigatable,
+COUNT(*) as activity
+
+from [nhp_modelling].[inpatients] ip
+
+left outer join [StrategicWorking].[dbo].[sw_ip_mitigatable_prevention] ipPrev
+on ip.EPIKEY = ipPrev.EPIKEY
+and ip.FYEAR = ipPrev.fyear
+
+left outer join [StrategicWorking].[dbo].[sw_ip_mitigatable_de-adoption] ipRati
+on ip.EPIKEY = ipRati.EPIKEY
+and ip.FYEAR = ipRati.fyear
+
+left outer join [StrategicWorking].[dbo].[sw_ip_mitigatable_redirect_substitute] ipReSu
+on ip.EPIKEY = ipReSu.EPIKEY
+and ip.FYEAR = ipReSu.fyear
+
+where 
+
+--spelend = 'Y' not needed - built into ip view
+datepart(YYYY, ip.admidate) >= 2011
+and datepart(YYYY, ip.admidate) <= 2019
+and age is not null
+and age <= 120
+and sex is not null
+and sex in ('1', '2')
+
+group by 
+
+DATEPART(YYYY, ip.admidate),
+age,
+case
+    when sex = '1' then 'm'
+    else 'f'
+    end,
+case
+    when LEFT(admimeth, 1) = '1' then 'IpElec'
+    when LEFT(admimeth, 1) = '3' then 'IpMat'
+    else 'IpEmer'
+    end,
+case
+    when ipPrev.EPIKEY is not null then 'prev'
+    when ipRati.EPIKEY is not null then 'rati'
+    when ipReSu.EPIKEY is not null then 'reSu'
+    else 'none'
+    end
+
+union all
+
+select
+
+DATEPART(YYYY, op.[apptdate]) as yr,
+apptage,
+case
+    when sex = '1' then 'm'
+    else 'f'
+    end as sex,
+'opAtt' as pod,
+case
+    when opRati.attendkey is not null then 'rati'
+    else 'none'
+    end as mitigatable,
+COUNT(*) as activity
+
+
+from [nhp_modelling].[outpatients] op
+
+left outer join [StrategicWorking].[dbo].[sw_op_mitigatable_de-adoption] opRati
+on op.attendkey = opRati.attendkey
+and op.FYEAR = opRati.fyear
+
+where
+
+datepart(YYYY, op.[apptdate]) >= 2011
+and datepart(YYYY, op.[apptdate]) <= 2019
+and apptage is not null
+and apptage <= 120
+and sex is not null
+and sex in ('1', '2')
+
+group by
+
+DATEPART(YYYY, op.[apptdate]),
+apptage,
+case
+    when sex = '1' then 'm'
+    else 'f'
+    end,
+case
+    when opRati.attendkey is not null then 'rati'
+    else 'none'
+    end
+
+union all
+
+
+
+select 
+
+DATEPART(YYYY, ed.[arrivaldate]) as yr,
+activage,
+case
+    when sex = '1' then 'm'
+    else 'f'
+    end as sex,
+'edAtt' as pod,
+case
+    when edReSu.aekey is not null then 'reSu'
+    else 'none'
+    end as mitigatable,
+COUNT(*) as activity
+
+from [nhp_modelling].[aae] ed
+
+left outer join [StrategicWorking].[dbo].[sw_ed_mitigatable_redirect_substitute] edReSu
+on ed.aekey = edReSu.aekey
+and ed.fyear = edReSu.fyear
+
+where
+
+datepart(YYYY, ed.[arrivaldate]) >= 2011
+and datepart(YYYY, ed.[arrivaldate]) <= 2019
+and activage is not null
+and activage <= 120
+and sex is not null
+and sex in ('1', '2')
+and [aedepttype] in ('1', '01')
+
+group by
+
+DATEPART(YYYY, ed.[arrivaldate]),
+activage,
+case
+    when sex = '1' then 'm'
+    else 'f'
+    end,
+case
+    when edReSu.aekey is not null then 'reSu'
+    else 'none'
+    end
+```
