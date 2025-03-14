@@ -158,4 +158,7 @@ glimpse(popn)
 # that there are ~34,000 LSOAs and 75,000 * 34,000 is approximately 58m
 
 # FINAL SAVE
-write.csv(popn, "2025 analysis/Population data/population_2011_2019_age_sex_region_imd.csv")
+write.csv(
+  popn, 
+  "2025 analysis/Population data/population_2011_2019_age_sex_region_imd.csv",
+  row.names = FALSE)
