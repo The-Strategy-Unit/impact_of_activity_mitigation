@@ -132,14 +132,18 @@ lsoa21_imd19_lookup <- lsoa21_imd19_lookup |>
 
 # Getting population by IMD quintile and region ---------------------------
 
+# we filter popn_long so that the LSOA is in England
+popn_long_england <- popn_long |> 
+  filter(str_starts(lsoa_2021_code, "E"))
+
 # We now can join the lsoa lookup onto the population data
-popn_long <- popn_long |> 
-  left_join(lsoa21_imd19_lookup, by = c("lsoa_2021_code" = "lsoa21cd"))
+popn_long_england <- popn_long_england |> 
+  inner_join(lsoa21_imd19_lookup, by = c("lsoa_2021_code" = "lsoa21cd"))
 
 # basically what we want is the population by year, age, sex, imd_quintile and region.
 # so we just aggregate accordingly and consequently lose the LSOA granularity
 
-popn <- popn_long |> 
+popn_england <- popn_long_england |> 
   summarise(
     population = sum(population), 
     .by = c(
@@ -151,14 +155,10 @@ popn <- popn_long |>
     )
   )
 
-glimpse(popn)
-
-# The data is now ~75,000 rows instead of ~58m as a result of removing the 
-# LSOA cut from the data. This makes sense as from the LSOA lookup we can see 
-# that there are ~34,000 LSOAs and 75,000 * 34,000 is approximately 58m
+glimpse(popn_england)
 
 # FINAL SAVE
 write.csv(
-  popn, 
+  popn_england, 
   "2025 analysis/Population data/population_2011_2019_age_sex_region_imd.csv",
   row.names = FALSE)
