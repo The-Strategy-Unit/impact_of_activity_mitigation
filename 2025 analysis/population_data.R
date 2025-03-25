@@ -90,9 +90,10 @@ saveRDS(popn_long, "2025 analysis/Population data/population_data_2011_2019.Rds"
 # Loading & wrangling LSOA21-IMD19 lookup ---------------------------------
 
 # Loading the LSOA21 - IMD19 lookup
-lsoa21_imd19_lookup <- read_excel("2025 analysis/reference data/2021-lsoa-imd-lookup.xlsx",
-                          sheet = "IMD lookup",
-                          skip = 5) |> 
+lsoa21_imd19_lookup <- read_excel(
+    "2025 analysis/reference data/2021-lsoa-imd-lookup.xlsx",
+    sheet = "IMD lookup",
+    skip = 5) |> 
   janitor::clean_names() |> 
   select(lsoa21cd, imd_quintile = imd2019_quintiles_lsoa21_within_ctry09, rgn09cd)
 
