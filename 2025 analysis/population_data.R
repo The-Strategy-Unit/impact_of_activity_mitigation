@@ -97,40 +97,6 @@ lsoa21_imd19_lookup <- read_excel(
   janitor::clean_names() |> 
   select(lsoa21cd, imd_quintile = imd2019_quintiles_lsoa21_within_ctry09, rgn09cd)
 
-
-# A function to change region codes to names
-region_code_to_name <- function(data, region_code) {
-  data |> 
-    mutate(
-      region = case_match(
-        {{region_code}},
-        "E12000001" ~ "North East",
-        "E12000002" ~ "North West",
-        "E12000003" ~ "Yorkshire and Humber",
-        "E12000004" ~ "East Midlands",
-        "E12000005" ~ "West Midlands",
-        "E12000006" ~ "East of England",
-        "E12000007" ~ "London",
-        "E12000008" ~ "South East",
-        "E12000009" ~ "South West",
-        "E99999999" ~ "England (not otherwise stated)",
-        "L99999999" ~ "Channel Islands",
-        "M99999999" ~ "Isle of Man",
-        "N99999999" ~ "Northern Ireland",
-        "S99999999" ~ "Scotland",
-        "W99999999" ~ "Wales",
-        "U" ~ "No fixed abode",
-        "X" ~ "Foreign",
-        "Y" ~ "Unknown"
-      )
-    )
-}
-
-# getting the regions
-lsoa21_imd19_lookup <- lsoa21_imd19_lookup |> 
-  region_code_to_name(rgn09cd) |> 
-  select(-rgn09cd)
-
 # Getting population by IMD quintile and region ---------------------------
 
 # we filter popn_long so that the LSOA is in England
@@ -151,7 +117,7 @@ popn_england <- popn_long_england |>
       year, 
       age, 
       sex, 
-      region, 
+      rgn09cd, 
       imd_quintile
     )
   )
