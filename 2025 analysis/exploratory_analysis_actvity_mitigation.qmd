@@ -1,0 +1,1097 @@
+---
+title: "Exploration of activity mitigation data"
+format: 
+  html:
+    embed-resources: true
+    code-fold: true
+    warning: false
+editor: visual
+---
+
+## Introduction
+
+The activity mitigation analysis is being updated. As part of that, we have moved to using Data Bricks to extract the data. This is about comparing the results to one another. There may be changes to do with updated logic for flagging mitigators and various differences in inclusions and exclusions.
+
+The other key difference is that for this analysis we are bringing in data on diagnosis. (These are ICD10 chapter for APC; ambulance/walk-in for ED; surgical / non-surgical / maternity for outpatient.)
+
+```{r libraries}
+library(tidyverse)
+library(stringr)
+library(here)
+library(gt)
+```
+
+## Data loading and patching
+
+We need to do some level of patching to ensure that the latest extracts are comparable to the previous extracts.
+
+### apc
+
+```{r apc_data_loading}
+apc_mitigators_data <- read.csv(
+  here(
+    "2025 analysis", 
+    "Data Bricks results and queries", 
+    "2025_03_24_apc_mitig_data.csv"
+    )
+  )
+
+apc_mitigators_data <- apc_mitigators_data |> 
+  mutate(fyear = as.numeric(str_sub(fyear,end = 4)),
+         imd_quintile = factor(as.numeric(imd_quintile)),
+         chapter_number = factor(chapter_number),
+         mitigation_type = if_else(mitigation_type == "null", "none", mitigation_type),
+         age = as.numeric(age),
+         pod = case_match(
+           pod,
+           "non-elective" ~ "IpEmer",
+           "elective" ~ "IpElec",
+           "maternity" ~ "IpMat"
+         ))
+
+```
+
+### opa
+
+```{r opa_data_loading}
+opa_mitigators_data_201112_201415 <- read.csv(
+  here(
+    "2025 analysis", 
+    "Data Bricks results and queries", 
+    "2025_03_27_opa_mitig_data_201112-201415.csv"
+    )
+  )
+
+opa_mitigators_data_201516_201819 <- read.csv(
+  here(
+    "2025 analysis", 
+    "Data Bricks results and queries", 
+    "2025_03_27_opa_mitig_data_201516-201819.csv"
+    )
+  )
+
+opa_mitigators_data_201920 <- read.csv(
+  here(
+    "2025 analysis", 
+    "Data Bricks results and queries", 
+    "2025_03_27_opa_mitig_data_201920.csv"
+    )
+  )
+
+opa_mitigators_data <- bind_rows(
+  opa_mitigators_data_201112_201415,
+  opa_mitigators_data_201516_201819,
+  opa_mitigators_data_201920)
+
+rm(opa_mitigators_data_201112_201415,
+   opa_mitigators_data_201516_201819,
+   opa_mitigators_data_201920
+   )
+
+opa_mitigators_data <- opa_mitigators_data |>
+  mutate(fyear = as.numeric(str_sub(fyear,end = 4)),
+         imd_quintile = factor(as.numeric(imd_quintile)),
+         sex = if_else(sex==1, "m", "f"),
+         pod = "opAtt"
+      )
+    
+```
+
+### aae
+
+```{r aae_data_loading}
+aae_mitigators_data <- read.csv(
+  here(
+    "2025 analysis", 
+    "Data Bricks results and queries", 
+    "2025_03_24_aae_mitig_data.csv"
+    )
+  )
+
+aae_mitigators_data <- aae_mitigators_data |> 
+  mutate(fyear = as.numeric(str_sub(fyear,end = 4)),
+         imd_quintile = factor(as.numeric(imd_quintile)),
+         sex = if_else(sex==1, "m", "f"),
+         pod = "edAtt")
+```
+
+```{r previous_data}
+mitigators_data_previous <- read.csv(
+  here(
+    "data",
+    "nonDemogMitig_data.csv"
+  )
+)
+
+# patching the rationing vs de-adoption issue
+mitigators_data_previous <- mitigators_data_previous |> 
+  #filter(pod %in% c("IpElec", "IpMat", "IpEmer")) |> 
+  mutate(mitigatable = case_when(
+    mitigatable == "rati" ~ "deAdopt",
+    TRUE ~ mitigatable)) |> 
+  rename(fyear = yr,
+         mitigation_type = mitigatable)
+```
+
+There are the data structures now:
+
+```{r glimpse}
+glimpse(apc_mitigators_data)
+glimpse(opa_mitigators_data)
+glimpse(aae_mitigators_data)
+glimpse(mitigators_data_previous)
+```
+
+We combine the three extracts from Data Bricks (one for each pod) to form `current_mitigators_data`.
+
+Then we form a single table `mitigation_comparison` for all the data.
+
+```{r bind_pods}
+current_mitigators_data <- bind_rows(
+  apc_mitigators_data,
+  opa_mitigators_data,
+  aae_mitigators_data)
+
+glimpse(current_mitigators_data)
+```
+
+```{r old_new_join}
+mitigation_comparison <- bind_rows(
+  current = current_mitigators_data,
+  previous = mitigators_data_previous,
+  .id = "data")
+
+glimpse(mitigation_comparison)
+```
+
+## Comparisons between data
+
+### Comparison of counts by pod
+
+Viewing the full Data Bricks queries in the annex, we can see that we are using the `nhp.raw_data` layer of HES on Data Bricks. These are prior to filtering to acute providers. The previous HES queries were on broadly equivalent inclusion criteria.
+
+We can see below that the trends are essentially the same in all cases. Elective and maternity are almost identical numbers.
+
+**ED attendances are now higher, with this being about 16.1m vs 15.3m in 2019.**
+
+**Emergency admissions are lower, by about 6.8m to 7.1m in 2019.**
+
+**Outpatient appointments are higher by about 94.3m to 83.4m in 2019 -- CHECK ABOUT DNAs**
+
+```{r counts_by_pod}
+mitigation_comparison |> 
+  summarise(activity = sum(activity), .by = c(fyear, data, pod)) |> 
+  ggplot(aes(x=fyear, y=activity, colour=data)) +
+  geom_line(linewidth=1) +
+  facet_wrap(~pod, scales = "free_y") +
+  ggtitle("Counts of activity by pod for current and previous extracts") +
+  scale_y_continuous(labels = scales::comma, limits = c(0,NA)) +
+  scale_x_continuous(breaks= scales::pretty_breaks())
+```
+
+### Comparison of counts of activity in scope of mitigators
+
+The below array is arranged so that the columns correspond to mitigation type and the rows to pods.
+
+The figures have been standardised so that the line shows the proportion of that pods activity that falls into each mitigation type; if you sum the value in the blue or red line for a given financial year across each mitigation type, it will add up to 100%.
+
+We can see the biggest differences is in the amount of outpatients activity that is in scope of mitigators -- in the current analysis, around 12.5pp more activity falls in scope than in the previous. This is likely in part a result of the mitigation strategy *Outpatient GP Referred First Attendance Reduction* being added.
+
+```{r counts_by_pod_mitigation}
+mitigation_comparison |> 
+  summarise(activity = sum(activity), .by = c(fyear, data, pod, mitigation_type)) |> 
+  mutate(activity_p = activity / sum(activity), .by = c(fyear, pod, data)) |> 
+  ggplot(aes(x=fyear,y=activity_p, colour = data)) +
+  geom_line() +
+  # NHSRtheme::theme_nhs() +
+  NHSRtheme::scale_colour_nhs() +
+  scale_y_continuous(labels = scales::percent, limits = c(0,1)) +
+  labs(title = "Comparison of inpatient activity by pod and mitigation",
+       subtitle = "for data bricks and previous query") +
+  facet_grid(rows = vars(pod), cols = vars(mitigation_type), scales = "free_y") +
+  scale_x_continuous(breaks= scales::pretty_breaks())
+```
+
+## Activity by region
+
+```{r region_lookup}
+region_lookup_fn <- function(data, rgn_field) {
+  data |> 
+    mutate(
+      region = case_when(
+        {{rgn_field}} == "E12000001" ~ "North East",
+        {{rgn_field}} == "E12000002" ~ "North West",
+        {{rgn_field}} == "E12000003" ~ "Yorkshire and Humber",
+        {{rgn_field}} == "E12000004" ~ "East Midlands",
+        {{rgn_field}} == "E12000005" ~ "West Midlands",
+        {{rgn_field}} == "E12000006" ~ "East of England",
+        {{rgn_field}} == "E12000007" ~ "London",
+        {{rgn_field}} == "E12000008" ~ "South East",
+        {{rgn_field}} == "E12000009" ~ "South West",
+        {{rgn_field}} == "E99999999" ~ "England (not otherwise stated)",
+        {{rgn_field}} == "L99999999" ~ "Channel Islands",
+        {{rgn_field}} == "M99999999" ~ "Isle of Man",
+        {{rgn_field}} == "N99999999" ~ "Northern Ireland",
+        {{rgn_field}} == "S99999999" ~ "Scotland",
+        {{rgn_field}} == "W99999999" ~ "Wales",
+        {{rgn_field}} ==  "U" ~ "No fixed abode",
+        {{rgn_field}} ==  "X" ~ "Foreign",
+        {{rgn_field}} ==  "Y" ~ "Unknown",
+        TRUE ~ NA_character_
+      )
+    )
+  }
+```
+
+We can see here that the activity data doesn't have the region variable populated prior to 2015/16.
+
+**TO-DO: investigate using the local authority variable `RESLADST` to get the region of the patient. It is populated.**
+
+Tom doing this.
+
+```{r regional_activity}
+current_mitigators_data |> 
+  filter(str_starts(resgor_ons, "E")) |>
+  region_lookup_fn(resgor_ons) |> 
+  summarise(activity = sum(activity), .by = c(fyear, region, pod)) |> 
+  ggplot(aes(x=fyear, y=activity, fill = region)) +
+  geom_col(position = "stack") +
+  scale_y_continuous(labels = scales::comma) +
+  facet_wrap(~pod, scales = "free_y") +
+  ggtitle("Activity by region, 2011/12 to 2019/20")
+```
+
+## IMD comparisons
+
+Below we show the distribution by IMD for 2011/12 vs 2019/20. We are using the IMD04 field which is built into HES OPA. See the [data dictionary notes(row 143)](https://digital.nhs.uk/binaries/content/assets/website-assets/data-and-information/data-tools-and-services/data-services/hospital-episode-statistics/hes-data-dictionary/hes-tos-v2.03.xlsx): *This field uses IMD version 2004 on activity up to and including 2006-07; IMD version 2007 on activity between 2007-08 and 2009-10; IMD version 2010 on activity from 2010-11 and M10 2022-23; IMD version 2019 from M11 2022-23.*\]
+
+This aligns with the [guidance](https://fingertips.phe.org.uk/documents/PHE%20Guidance%20-%20Indices%20of%20Multiple%20Deprivation.pdf) from Finger Tips on measuring IMD over time.
+
+```{r imd}
+current_mitigators_data |> 
+  filter(fyear %in% c(2011,2019)) |> 
+  summarise(activity = sum(activity), .by = c(pod, fyear, imd_quintile)) |>
+  mutate(activity_p = activity / sum(activity), .by = c(fyear, pod)) |> 
+  mutate(activity_p = if_else(fyear == 2011, -activity_p, activity_p), .by = fyear) |> 
+  ggplot(aes(x = imd_quintile, y = activity_p, fill = factor(fyear))) +
+  geom_col(width = 0.7, alpha = 0.8) +
+  geom_text(
+    aes(label = scales::percent(abs(activity_p), accuracy = 1),
+        x = imd_quintile,
+        y = ifelse(activity_p > 0, activity_p + 0.01, activity_p - 0.01)),  # Offset y
+    hjust = 0.5, # Center horizontally
+    color = "black",
+    size = 3
+  ) +
+  coord_flip() +
+  scale_y_continuous(breaks = scales::pretty_breaks(), labels = scales::percent) +
+  labs(
+    title = paste("activity by IMD quintile and pod (2011/12 vs 2019/20)"),
+    x = "IMD quintile",
+    y = "Proportion of activity",
+    fill = "Year"
+  ) +
+  theme(
+    panel.grid.major.y = element_blank(),
+    legend.position = "bottom"
+  ) +
+  facet_wrap(~pod, scales = "free_x")
+```
+
+## Diagnosis
+
+The table below shows the count and proportion of activity by ICD-10 chapter for each pod. We have the yearly figures in the annex.
+
+```{r icd10_table}
+icd10_descriptions <- readxl::read_excel(
+  here(
+    "2025 analysis",
+    "icd 10 chapters.xlsx"))
+
+# Define the correct order for ICD-10 chapters
+icd10_levels <- c("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", 
+                  "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", 
+                  "XX", "XXI", "XXII")
+
+apc_mitigators_data |>
+  left_join(icd10_descriptions, by = c("chapter_number" = "Chapter")) |> 
+  summarise(activity = sum(activity), .by = c(pod, chapter_number, Title)) |>
+  mutate(
+    proportion = activity / sum(activity), .by = c(pod),
+    chapter_number = factor(chapter_number, levels = icd10_levels)  # Convert to ordered factor
+  ) |>
+  arrange(chapter_number) |>  # Ensures correct sorting
+  pivot_wider(names_from = pod, values_from = c(activity, proportion), names_glue = "{pod}_{.value}") |> 
+  gt() |> 
+  cols_label(chapter_number = "ICD-10 chapter",
+             ends_with("activity") ~ "Activity",
+             ends_with("proportion") ~ "Proportion") |>
+  fmt_number(
+    columns = ends_with("activity"),
+    sep_mark = ",",
+    decimals = 0
+  ) |>
+  fmt_percent(
+    columns = ends_with("proportion"),
+    decimals = 1
+  ) |>
+  tab_spanner(
+    label = "Elective",
+    columns = matches("^IpElec_")
+  ) |>
+  tab_spanner(
+    label = "Emergency",
+    columns = matches("^IpEmer_")
+  ) |>
+  tab_spanner(
+    label = "Maternity",
+    columns = matches("^IpMat_")
+  )
+
+
+```
+
+<!-- Across the study period, we can see that the most common chapters for emergency admissions are *X - Diseases of the respiratory system* (12.4%), *XVIII - Symptoms, signs and abnormal clinical and laboratory findings, not elsewhere classified* (16.3%) and *XIX - Injury, poisoning and certain other consequences of external causes* (12.2%). -->
+
+<!-- For elective, they are *II - Neoplasms* (22.3%), *XI - Diseases of the digestive system* (15.5%) and *XIV - Diseases of the genitourinary system* (13.0%). -->
+
+<!-- *XV - Pregnancy, childbirth and the puerperium* is unsurprisingly by far the most common (85.8%) for maternity admissions. Almost all of the remaining (12.8%) are *XXI - Factors influencing health status and contact with health services* -->
+
+The ICD10 chapters are printed in the annex.
+
+## Outpatients activity type
+
+Below we can see the outpatients attendances by type. As we can see the majority is non-surgical / general medicine, with this growing over the study period from 53% to 59% between 2011 and 2019. Surgical specialties reduced from 39% to 34%.
+
+```{r opa_type_counts}
+opa_mitigators_data |> 
+  mutate(type = case_when(
+    str_detect(type, "non-surgical") ~ "non-surgical",
+    str_detect(type, "surgical") ~ "surgical",
+    TRUE ~ type)) |> 
+  filter(fyear >= 2011) |> 
+  summarise(activity = sum(activity), .by = c(fyear, type)) |> 
+  mutate(proportion = activity / sum(activity), .by = fyear) |> 
+  ggplot(aes(x = fyear, y = proportion, fill = type)) +
+  geom_bar(stat = "identity", position = "stack") +
+  geom_text(aes(label = scales::percent(proportion, accuracy = 1)), 
+            position = position_fill(vjust = 0.5), 
+            color = "white", size = 4) +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  scale_y_continuous(labels = scales::percent) +
+  ggtitle("Outpatient activity by type, 2011-2019")
+```
+
+## A&E activity type
+
+Below we can see the types of A&E activity over the study period. A steady majority of around 70% of A&E arrivals are walk-in.
+
+```{r aea_type_counts}
+aae_mitigators_data |> 
+  filter(fyear >= 2011) |> 
+  summarise(activity = sum(activity), .by = c(fyear, group)) |> 
+  mutate(proportion = activity / sum(activity), .by = fyear) |> 
+  ggplot(aes(x=fyear, y=proportion, fill=group)) +
+  geom_bar(stat = "identity", position = "fill") +
+  geom_text(aes(label = scales::percent(proportion, accuracy = 1)), 
+          position = position_fill(vjust = 0.5), 
+          color = "white", size = 4) +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  scale_y_continuous(labels = scales::percent) +
+  ggtitle("A&E activity by type, 2011-2019")
+```
+
+## Population
+
+```{r load_population}
+population <- read.csv(
+  here(
+    "2025 analysis", 
+    "Population data",
+    "population_2011_2019_age_sex_region_imd.csv"
+  ),
+  row.names = NULL
+)
+```
+
+### Sources of data
+
+There are two sources for the population data:
+
+<!-- -   [English Indices of Deprivation 2019 - LSOA Level: a data cube spreadsheet](https://opendatacommunities.org/slice?dataset=http%3A%2F%2Fopendatacommunities.org%2Fdata%2Fsocietal-wellbeing%2Fimd2019%2Findices&http%3A%2F%2Fopendatacommunities.org%2Fdef%2Fontology%2Fcommunities%2Fsocietal_wellbeing%2Fimd%2Findices=http%3A%2F%2Fopendatacommunities.org%2Fdef%2Fconcept%2Fgeneral-concepts%2Fimd%2Fcombineddeprivation&http%3A%2F%2Fpurl.org%2Flinked-data%2Fcube%23measureType=http%3A%2F%2Fopendatacommunities.org%2Fdef%2Fontology%2Fcommunities%2Fsocietal_wellbeing%2Fimd%2FdecObs) -->
+
+<!-- -   [ONS LSOA11 to LSOA21 best fit lookup](https://geoportal.statistics.gov.uk/datasets/ons::lsoa-2011-to-lsoa-2021-to-local-authority-district-2022-best-fit-lookup-for-ew-v2/about) -->
+
+<!-- -   [English indices of deprivation 2019 Official](https://www.gov.uk/government/statistics/english-indices-of-deprivation-2019) -->
+
+<!--     -   [specific workbook (LSOA11 -\> IMD19)](https://assets.publishing.service.gov.uk/media/5d8b3abded915d0373d3540f/File_1_-_IMD2019_Index_of_Multiple_Deprivation.xlsx) -->
+
+-   [LSOA population estimates](https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/lowersuperoutputareamidyearpopulationestimates) - three workbooks for 2011-14, 2015-18 and 2019 with one worksheet per year. One LSOA21 per row and one column for each year-sex combination with counts.
+
+<!-- -   There is the script from Francis Barton to load the population data from NOMIS in a tidy format too. -->
+
+-   [Finger Tips LSOA21 to IMD19 lookup](https://fingertips.phe.org.uk/documents/2021-lsoa-imd-lookup.xlsx)
+
+### Wrangling
+
+We do some wrangling in another script to load the data from the ONS LSOA population estimates, convert to tidy data format, combine and then link to the IMD19 quintile and region before aggregating to get population counts at the level of year, age, sex, IMD quintile, and region.
+
+### General population trend by region
+
+```{r population_trend}
+population |> 
+  region_lookup_fn(rgn09cd) |> 
+  summarise(population = sum(population), .by = c(year, region)) |> 
+  ggplot(aes(x=year, y=population, fill = region)) +
+  geom_col(position = "stack") +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  scale_y_continuous(labels = scales::comma) +
+  ggtitle("Population in England by region")
+```
+
+### Population by IMD quintile and region, 2011/12 to 2019/20
+
+```{r population_region_imd}
+population |>
+  region_lookup_fn(rgn09cd) |> 
+  summarise(population = sum(population), .by = c(year, region, imd_quintile)) |> 
+  ggplot(aes(x=year, y=population, fill = factor(imd_quintile))) +
+  geom_col(position = "stack") +
+  facet_wrap(~region, scales = "free_y") +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  ggtitle("Population by IMD quintile and region, 2011/12 to 2019/20")
+```
+
+## Activity & population combined
+
+we link between the activity and population data by year, age, sex, region, and IMD quintile.
+
+```{r data_linkage}
+
+population <- population |> 
+  mutate(imd_quintile = factor(imd_quintile))
+
+current_mitigators_population_data <- current_mitigators_data |> 
+  inner_join(
+    population, 
+    by = c(
+      "fyear" = "year", 
+      "age",
+      "sex",
+      "resgor_ons" = "rgn09cd",
+      "imd_quintile"))
+
+glimpse(current_mitigators_population_data)
+```
+
+### Inspecting the join quality
+
+-   The population data is perfectly filled in for all combinations of year, age, sex, region, imd quintile. Therefore, any rows which are dropped in the inner join are because of the activity data
+-   The drop is from 5,270,932 to 4,373,532 which equates to 897,400 fewer rows
+-   There are 591,228 rows in the activity data which have year prior to 2015/16 and thus the region isn't filled in
+-   So there are 897,400 - 591,228 = 306,172 rows in the activity data post-2015/16 that are dropped
+-   The below chunk shows that there are 305,951 rows in post-201516 data which are not English regions, i.e. they won't match  
+-   **Given all the rows prior to 2015/16 (591,228) and 305,951 in the data after that have values which won't match, this demonstrates that the overwhelming majority of the non-matches (897,179 out of 897,400) are to do with the region variable.** 
+
+```{r}
+current_mitigators_data |>
+  filter(fyear >= 2015) |>
+  mutate(region_known = if_else(
+    resgor_ons %in% c(
+      "E12000001", "E12000002", "E12000003", "E12000004", "E12000005",
+      "E12000006", "E12000007", "E12000008", "E12000009"
+    ),
+    "England known abode",
+    "Other"
+  )) |>
+  count(region_known)
+```
+
+
+## Exploration of activity rates
+
+We can see the activity rate by IMD quintile in 2019 below.
+
+```{r activity_rates_by_imd}
+current_mitigators_population_data |> 
+  filter(fyear == 2019) |> 
+  summarise(activity = sum(activity, na.rm = TRUE),
+            population = sum(population, na.rm = TRUE),
+            .by = c(imd_quintile, pod)) |> 
+  mutate(activity_rate = activity / population) |> 
+  ggplot(aes(x=imd_quintile, y=activity_rate, fill = imd_quintile)) +
+  geom_col() +
+  facet_wrap(~pod, scales = "free_y") +
+  theme(axis.text.x = element_blank(),
+        axix.tick.x = element_blank()) +
+  ggtitle("Activity rate by IMD quintile and pod, 2019")
+```
+## And activity rates by region (one per pod, exc. maternity)
+
+```{r}
+current_mitigators_population_data |> 
+  filter(fyear == 2019) |> 
+  region_lookup_fn(resgor_ons) |>
+  summarise(activity_rate = sum(activity) / sum(population), .by = c(region, imd_quintile, pod)) |> 
+  ggplot(aes(x=region, y=activity_rate, fill = imd_quintile)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~pod, scales = "free_y") +
+  ggtitle("Activity rates by region and IMD quintile") +
+  theme(axis.text.x = element_text(angle = 90))
+  
+```
+
+
+
+## BAMs
+
+We use big additive models (BAMs) instead of general additive models (GAMs) in this analysis given the very large amounts of data being analysed - there are 5.3m rows in the linked data.
+
+To calculate BAMs we need to do the following additional prep:
+-   population share needs to be calculated by year, quintile, and region
+-   the sex-icd/type/group variables need to be created
+-   region needs to be a factor
+-   need to load the mgcv and MASS packages
+-   limit to 201516 onwards given the region issue
+
+
+```{r bam_data}
+library(mgcv)
+library(MASS)
+
+gam_data_apc <- current_mitigators_population_data |> 
+  filter(pod %in% c("IpElec", "IpEmer")) |> 
+  dplyr::select(!c(type, group)) |> 
+  mutate(population_share = population / sum(population), 
+         .by = c(fyear, imd_quintile, resgor_ons)) |> 
+  mutate(sex_icd = factor(paste(sex, chapter_number, sep = "_")),
+         resgor_ons = factor(resgor_ons))
+
+gam_data_op <- current_mitigators_population_data |> 
+  filter(pod == "opAtt") |> 
+  dplyr::select(!c(group, chapter_number)) |> 
+  mutate(population_share = population / sum(population), 
+         .by = c(fyear, imd_quintile, resgor_ons)) |> 
+  mutate(sex_type = factor(paste(sex, type, sep = "_")),
+         resgor_ons = factor(resgor_ons))
+  
+
+gam_data_aae <- current_mitigators_population_data |> 
+  filter(pod == "edAtt") |> 
+  dplyr::select(!c(type, chapter_number)) |> 
+  mutate(population_share = population / sum(population), 
+         .by = c(fyear, imd_quintile, resgor_ons)) |> 
+  mutate(sex_group = factor(paste(sex, group, sep = "_")),
+         resgor_ons = factor(resgor_ons))
+```
+
+
+### Non-elective BAM \| 2015-16 onwards \| no sampling \| age smooth without icd
+
+Commented out due to error:
+
+Error in `X[, pstart[i] - 1 + 1:object$nsdf[i]] <- Xp`:
+! number of items to replace is not a multiple of replacement length
+Backtrace:
+ 1. mgcv::bam(...)
+ 2. mgcv:::bgam.fit(...)
+ 4. mgcv::predict.gam(...)
+
+```{r non_elective_bam}
+non_elective_bam_fe_start <- Sys.time()
+non_elective_bam_fe <- bam(
+  activity ~ s(age, by = sex_icd) + sex + mitigation_type + fyear + fyear:mitigation_type + chapter_number + imd_quintile + resgor_ons + offset(log(population)),
+  family = nb(link = 'log'),
+  weights = population_share,
+  data = gam_data_apc,
+  subset = (pod == "IpEmer"))
+non_elective_bam_fe_end <- Sys.time()
+non_elective_bam_fe_time_taken <- non_elective_bam_fe_end - non_elective_bam_fe_start
+
+non_elective_bam_re_start <- Sys.time()
+non_elective_bam_re <- bam(
+  activity ~ s(age, by = sex_icd) + sex + mitigation_type + fyear + fyear:mitigation_type + chapter_number + imd_quintile + s(resgor_ons, by = "bs") + offset(log(population)),
+  family = nb(link = 'log'),
+  weights = population_share,
+  data = gam_data_apc,
+  subset = (pod == "IpEmer"))
+non_elective_bam_re_end <- Sys.time()
+non_elective_bam_re_time_taken <- non_elective_bam_re_end - non_elective_bam_re_start
+```
+
+```{r non_elective_bam_results}
+non_elective_bam_fe_time_taken
+broom::tidy(non_elective_bam_fe, parametric = TRUE) |>
+  gt()
+
+non_elective_bam_re_time_taken
+broom::tidy(non_elective_bam_re, parametric = TRUE) |>
+  gt()
+```
+
+### OPA bam
+
+```{r opa_bams}
+opa_fe_start <- Sys.time()
+opa_bam_fe <- bam(
+  activity ~ s(age, by = sex_type) + sex + mitigation_type + fyear + fyear:mitigation_type + type + imd_quintile + resgor_ons + offset(log(population)),
+  family = nb(link = 'log'),
+  weights = population_share,
+  data = gam_data_op)
+opa_fe_end <- Sys.time()
+opa_fe_time_taken <- opa_fe_end - opa_fe_start
+
+opa_re_start <- Sys.time()
+opa_bam_re <- bam(
+  activity ~ s(age, by = sex_type) + sex + mitigation_type + fyear + fyear:mitigation_type + type + imd_quintile + s(resgor_ons, bs = 're') + offset(log(population)),
+  family = nb(link = 'log'),
+  weights = population_share,
+  data = gam_data_op)
+opa_re_end <- Sys.time()
+opa_re_time_taken <- opa_re_end - opa_re_start
+```
+
+```{r opa_bam_results}
+opa_fe_time_taken
+broom::tidy(opa_bam_fe, parametric = TRUE) |> 
+  gt()
+
+opa_re_time_taken
+broom::tidy(opa_bam_re, parametric = TRUE) |> 
+  gt()
+```
+
+### ED bam
+
+```{r ed_bams}
+ed_fe_start <- Sys.time()
+ed_bam_fe <- bam(
+  activity ~ s(age, by = sex_group) + sex + mitigation_type + fyear + fyear:mitigation_type + group + imd_quintile + resgor_ons + offset(log(population)),
+  family = nb(link = 'log'),
+  weights = population_share,
+  data = gam_data_aae)
+ed_fe_end <- Sys.time()
+ed_fe_time_taken <- ed_fe_end - ed_fe_start
+
+ed_re_start <- Sys.time()
+ed_bam_re <- bam(
+  activity ~ s(age, by = sex_group) + sex + mitigation_type + fyear + fyear:mitigation_type + group + imd_quintile + s(resgor_ons, bs = 're') + offset(log(population)),
+  family = nb(link = 'log'),
+  weights = population_share,
+  data = gam_data_aae)
+ed_re_end <- Sys.time()
+ed_re_time_taken <- ed_re_end - ed_re_start
+```
+
+```{r ed_bam_results}
+ed_fe_time_taken
+broom::tidy(ed_bam_fe, parametric = TRUE) |> 
+  gt()
+
+ed_re_time_taken
+broom::tidy(ed_bam_re, parametric = TRUE) |> 
+  gt()
+
+```
+
+## Annex - Data Bricks queries
+
+### Inpatient
+
+For inpatient we have to create a view which samples, categorises and ranks the mitigators in the table `nhp.raw_data.apc_mitigators`. This is the first of the following two scripts. The subsequent derives the counts of admissions.
+
+``` sql
+CREATE VIEW activity_mitigation_table AS
+WITH sampled_data AS (
+    SELECT
+        epikey,
+        sample_rate,
+        type,
+        strategy,
+        CASE
+            WHEN strategy IN (
+                'alcohol_partially_attributable_acute', 'alcohol_partially_attributable_chronic', 'alcohol_wholly_attributable', 'falls_related_admissions',
+                'obesity_related_admissions', 'smoking') THEN 'prev'
+            WHEN strategy IN (
+                'evidence_based_interventions_ent', 'evidence_based_interventions_general_surgery', 'evidence_based_interventions_gi_surgical',
+                'evidence_based_interventions_msk', 'evidence_based_interventions_urology', 'evidence_based_interventions_vascular_varicose_veins') THEN 'deAdopt'
+            WHEN strategy IN (
+                'ambulatory_care_conditions_acute', 'ambulatory_care_conditions_chronic', 'ambulatory_care_conditions_vaccine_preventable',
+                'eol_care_2_days', 'eol_care_3_to_14_days', 'frail_elderly_high', 'frail_elderly_intermediate', 'intentional_self_harm',
+                'medically_unexplained_related_admissions', 'medicines_related_admissions_explicit', 'medicines_related_admissions_implicit_anti-diabetics',
+                'medicines_related_admissions_implicit_benzodiasepines', 'medicines_related_admissions_implicit_diurectics',
+                'medicines_related_admissions_implicit_nsaids', 'raid_ae', 'readmission_within_28_days', 'zero_los_no_procedure_adult',
+                'zero_los_no_procedure_child') THEN 'reSu'
+            ELSE 'none'
+        END AS mitigation_type
+    FROM nhp.raw_data.apc_mitigators
+    WHERE sample_rate >= RAND()
+),
+ranked_data AS (
+    SELECT
+        *,
+        ROW_NUMBER() OVER (
+            PARTITION BY epikey
+            ORDER BY
+                CASE mitigation_type
+                    WHEN 'prev' THEN 1
+                    WHEN 'deAdopt' THEN 2
+                    WHEN 'reSu' THEN 3
+                    ELSE 4
+                END
+        ) AS rn
+    FROM sampled_data
+)
+SELECT * FROM ranked_data WHERE rn = 1;
+```
+
+``` sql
+SELECT
+  a.fyear,
+  a.group AS pod,
+  a.age,
+  CASE 
+    WHEN e.resgor_ons = "E12000001" THEN "North East"
+    WHEN e.resgor_ons = "E12000002" THEN "North West"
+    WHEN e.resgor_ons = "E12000003" THEN "Yorkshire and Humber"
+    WHEN e.resgor_ons = "E12000004" THEN "East Midlands"
+    WHEN e.resgor_ons = "E12000005" THEN "West Midlands"
+    WHEN e.resgor_ons = "E12000006" THEN "East of England"
+    WHEN e.resgor_ons = "E12000007" THEN "London"
+    WHEN e.resgor_ons = "E12000008" THEN "South East"
+    WHEN e.resgor_ons = "E12000009" THEN "South West"
+    WHEN e.resgor_ons = "E99999999" THEN "England (not otherwise stated)"
+    WHEN e.resgor_ons = "L99999999" THEN "Channel Islands"
+    WHEN e.resgor_ons = "M99999999" THEN "Isle of Man"
+    WHEN e.resgor_ons = "N99999999" THEN "Northern Ireland"
+    WHEN e.resgor_ons = "S99999999" THEN "Scotland"
+    WHEN e.resgor_ons = "W99999999" THEN "Wales"
+    WHEN e.resgor_ons =  "U" THEN "No fixed abode"
+    WHEN e.resgor_ons =  "X" THEN "Foreign"
+    WHEN e.resgor_ons =  "Y" THEN "Unknown"
+  END AS region,
+  CASE
+    WHEN a.sex = '1' THEN 'm'
+    ELSE 'f'
+  END AS sex,
+  d.chapter_number,
+  a.imd_quintile,
+  b.mitigation_type,
+  COUNT(a.epikey) AS activity  
+ FROM nhp.raw_data.apc a
+ LEFT JOIN 
+  activity_mitigation_table b
+  ON a.epikey = b.epikey
+LEFT JOIN
+  hes.silver.apc_diagnoses c 
+  ON a.epikey = c.epikey
+LEFT JOIN
+  icd10_codes_gabriel d
+  ON c.diagnosis = d.icd10
+LEFT JOIN
+  hes.silver.apc e
+  ON a.epikey = e.epikey
+WHERE
+  c.diag_order = 1
+  AND a.fyear BETWEEN '201112' AND '201920'
+GROUP BY
+  a.fyear,
+  a.group,
+  a.age,
+  CASE 
+    WHEN e.resgor_ons = "E12000001" THEN "North East"
+    WHEN e.resgor_ons = "E12000002" THEN "North West"
+    WHEN e.resgor_ons = "E12000003" THEN "Yorkshire and Humber"
+    WHEN e.resgor_ons = "E12000004" THEN "East Midlands"
+    WHEN e.resgor_ons = "E12000005" THEN "West Midlands"
+    WHEN e.resgor_ons = "E12000006" THEN "East of England"
+    WHEN e.resgor_ons = "E12000007" THEN "London"
+    WHEN e.resgor_ons = "E12000008" THEN "South East"
+    WHEN e.resgor_ons = "E12000009" THEN "South West"
+    WHEN e.resgor_ons = "E99999999" THEN "England (not otherwise stated)"
+    WHEN e.resgor_ons = "L99999999" THEN "Channel Islands"
+    WHEN e.resgor_ons = "M99999999" THEN "Isle of Man"
+    WHEN e.resgor_ons = "N99999999" THEN "Northern Ireland"
+    WHEN e.resgor_ons = "S99999999" THEN "Scotland"
+    WHEN e.resgor_ons = "W99999999" THEN "Wales"
+    WHEN e.resgor_ons =  "U" THEN "No fixed abode"
+    WHEN e.resgor_ons =  "X" THEN "Foreign"
+    WHEN e.resgor_ons =  "Y" THEN "Unknown"
+  END,
+  CASE
+    WHEN a.sex = '1' THEN 'm'
+    ELSE 'f'
+  END,
+  d.chapter_number,
+  a.imd_quintile,
+  b.mitigation_type;
+```
+
+### Outpatient
+
+``` sql
+SELECT 
+  'opa' AS pod,
+  a.fyear, 
+  a.age, 
+  a.sex,
+  a.type,
+  a.imd_quintile,
+  CASE 
+    WHEN b.resgor_ons = "E12000001" THEN "North East"
+    WHEN b.resgor_ons = "E12000002" THEN "North West"
+    WHEN b.resgor_ons = "E12000003" THEN "Yorkshire and Humber"
+    WHEN b.resgor_ons = "E12000004" THEN "East Midlands"
+    WHEN b.resgor_ons = "E12000005" THEN "West Midlands"
+    WHEN b.resgor_ons = "E12000006" THEN "East of England"
+    WHEN b.resgor_ons = "E12000007" THEN "London"
+    WHEN b.resgor_ons = "E12000008" THEN "South East"
+    WHEN b.resgor_ons = "E12000009" THEN "South West"
+    WHEN b.resgor_ons = "E99999999" THEN "England (not otherwise stated)"
+    WHEN b.resgor_ons = "L99999999" THEN "Channel Islands"
+    WHEN b.resgor_ons = "M99999999" THEN "Isle of Man"
+    WHEN b.resgor_ons = "N99999999" THEN "Northern Ireland"
+    WHEN b.resgor_ons = "S99999999" THEN "Scotland"
+    WHEN b.resgor_ons = "W99999999" THEN "Wales"
+    WHEN b.resgor_ons =  "U" THEN "No fixed abode"
+    WHEN b.resgor_ons =  "X" THEN "Foreign"
+    WHEN b.resgor_ons =  "Y" THEN "Unknown"
+  END AS region,
+  CASE
+    WHEN EXISTS(SELECT 1 FROM opa_mitigators_gabriel WHERE attendkey = a.attendkey) THEN 'deAdopt'
+    ELSE 'none'
+  END AS mitigation_type,
+  COUNT(distinct a.attendkey) AS activity
+FROM
+  nhp.raw_data.opa a
+LEFT JOIN
+  hes.silver.opa b
+  -- the bronze layer of outpatients data is partioned by fyear and 
+  ON a.attendkey = b.attendkey and a.fyear = b.fyear and a.procode3 = b.procode3
+WHERE
+  a.fyear BETWEEN 201112 AND 201920
+GROUP BY
+  a.fyear, 
+  a.age, 
+  a.sex,
+  a.type,
+  a.imd_quintile,
+  CASE 
+    WHEN b.resgor_ons = "E12000001" THEN "North East"
+    WHEN b.resgor_ons = "E12000002" THEN "North West"
+    WHEN b.resgor_ons = "E12000003" THEN "Yorkshire and Humber"
+    WHEN b.resgor_ons = "E12000004" THEN "East Midlands"
+    WHEN b.resgor_ons = "E12000005" THEN "West Midlands"
+    WHEN b.resgor_ons = "E12000006" THEN "East of England"
+    WHEN b.resgor_ons = "E12000007" THEN "London"
+    WHEN b.resgor_ons = "E12000008" THEN "South East"
+    WHEN b.resgor_ons = "E12000009" THEN "South West"
+    WHEN b.resgor_ons = "E99999999" THEN "England (not otherwise stated)"
+    WHEN b.resgor_ons = "L99999999" THEN "Channel Islands"
+    WHEN b.resgor_ons = "M99999999" THEN "Isle of Man"
+    WHEN b.resgor_ons = "N99999999" THEN "Northern Ireland"
+    WHEN b.resgor_ons = "S99999999" THEN "Scotland"
+    WHEN b.resgor_ons = "W99999999" THEN "Wales"
+    WHEN b.resgor_ons =  "U" THEN "No fixed abode"
+    WHEN b.resgor_ons =  "X" THEN "Foreign"
+    WHEN b.resgor_ons =  "Y" THEN "Unknown"
+  END,
+  CASE
+    WHEN EXISTS(SELECT 1 FROM opa_mitigators_gabriel WHERE attendkey = a.attendkey) THEN 'deAdopt'
+    ELSE 'none'
+  END;
+```
+
+### A&E
+
+``` sql
+select 
+  'aea' as pod, 
+  a.fyear, 
+  a.age, 
+  a.sex, 
+  a.group,
+  a.imd_quintile,
+  CASE
+    WHEN a.fyear < 201920 THEN
+      CASE
+        WHEN b.resgor_ons = "E12000001" THEN "North East"
+        WHEN b.resgor_ons = "E12000002" THEN "North West"
+        WHEN b.resgor_ons = "E12000003" THEN "Yorkshire and Humber"
+        WHEN b.resgor_ons = "E12000004" THEN "East Midlands"
+        WHEN b.resgor_ons = "E12000005" THEN "West Midlands"
+        WHEN b.resgor_ons = "E12000006" THEN "East of England"
+        WHEN b.resgor_ons = "E12000007" THEN "London"
+        WHEN b.resgor_ons = "E12000008" THEN "South East"
+        WHEN b.resgor_ons = "E12000009" THEN "South West"
+        WHEN b.resgor_ons = "E99999999" THEN "England (not otherwise stated)"
+        WHEN b.resgor_ons = "L99999999" THEN "Channel Islands"
+        WHEN b.resgor_ons = "M99999999" THEN "Isle of Man"
+        WHEN b.resgor_ons = "N99999999" THEN "Northern Ireland"
+        WHEN b.resgor_ons = "S99999999" THEN "Scotland"
+        WHEN b.resgor_ons = "W99999999" THEN "Wales"
+        WHEN b.resgor_ons =  "U" THEN "No fixed abode"
+        WHEN b.resgor_ons =  "X" THEN "Foreign"
+        WHEN b.resgor_ons =  "Y" THEN "Unknown"
+      end
+    ELSE
+      CASE
+        WHEN c.Government_Office_Region = "E12000001" THEN "North East"
+        WHEN c.Government_Office_Region = "E12000002" THEN "North West"
+        WHEN c.Government_Office_Region = "E12000003" THEN "Yorkshire and Humber"
+        WHEN c.Government_Office_Region = "E12000004" THEN "East Midlands"
+        WHEN c.Government_Office_Region = "E12000005" THEN "West Midlands"
+        WHEN c.Government_Office_Region = "E12000006" THEN "East of England"
+        WHEN c.Government_Office_Region = "E12000007" THEN "London"
+        WHEN c.Government_Office_Region = "E12000008" THEN "South East"
+        WHEN c.Government_Office_Region = "E12000009" THEN "South West"
+        WHEN c.Government_Office_Region = "E99999999" THEN "England (not otherwise stated)"
+        WHEN c.Government_Office_Region = "L99999999" THEN "Channel Islands"
+        WHEN c.Government_Office_Region = "M99999999" THEN "Isle of Man"
+        WHEN c.Government_Office_Region = "N99999999" THEN "Northern Ireland"
+        WHEN c.Government_Office_Region = "S99999999" THEN "Scotland"
+        WHEN c.Government_Office_Region = "W99999999" THEN "Wales"
+        WHEN c.Government_Office_Region =  "U" THEN "No fixed abode"
+        WHEN c.Government_Office_Region =  "X" THEN "Foreign"
+        WHEN c.Government_Office_Region =  "Y" THEN "Unknown"
+      end
+  end as region,
+  CASE
+    WHEN EXISTS(SELECT 1 FROM aea_mitigators_data WHERE key = a.key) THEN 'deAdopt'
+    ELSE 'none'
+  END AS mitigation_type,
+  count(distinct a.key) as activity
+from
+  nhp.raw_data.ecds a
+left join
+  hes.silver.aae b
+  -- this table is partitioned by fyear and procode3, so we join on those too to optimise the query
+  on a.key = b.aekey and a.fyear = b.fyear and a.procode3 = b.procode3 and a.fyear <= 201819
+left join
+  hes.silver.ecds c
+  on a.key = c.EC_Ident and a.fyear = 201920
+where
+  a.fyear between 201112 and 201920
+  and a.aedepttype = '01'
+group by
+  a.fyear, 
+  a.age, 
+  a.sex, 
+  a.group,
+  a.imd_quintile,
+  CASE
+    WHEN a.fyear < 201920 THEN
+      CASE
+        WHEN b.resgor_ons = "E12000001" THEN "North East"
+        WHEN b.resgor_ons = "E12000002" THEN "North West"
+        WHEN b.resgor_ons = "E12000003" THEN "Yorkshire and Humber"
+        WHEN b.resgor_ons = "E12000004" THEN "East Midlands"
+        WHEN b.resgor_ons = "E12000005" THEN "West Midlands"
+        WHEN b.resgor_ons = "E12000006" THEN "East of England"
+        WHEN b.resgor_ons = "E12000007" THEN "London"
+        WHEN b.resgor_ons = "E12000008" THEN "South East"
+        WHEN b.resgor_ons = "E12000009" THEN "South West"
+        WHEN b.resgor_ons = "E99999999" THEN "England (not otherwise stated)"
+        WHEN b.resgor_ons = "L99999999" THEN "Channel Islands"
+        WHEN b.resgor_ons = "M99999999" THEN "Isle of Man"
+        WHEN b.resgor_ons = "N99999999" THEN "Northern Ireland"
+        WHEN b.resgor_ons = "S99999999" THEN "Scotland"
+        WHEN b.resgor_ons = "W99999999" THEN "Wales"
+        WHEN b.resgor_ons =  "U" THEN "No fixed abode"
+        WHEN b.resgor_ons =  "X" THEN "Foreign"
+        WHEN b.resgor_ons =  "Y" THEN "Unknown"
+      end
+    ELSE
+      CASE
+        WHEN c.Government_Office_Region = "E12000001" THEN "North East"
+        WHEN c.Government_Office_Region = "E12000002" THEN "North West"
+        WHEN c.Government_Office_Region = "E12000003" THEN "Yorkshire and Humber"
+        WHEN c.Government_Office_Region = "E12000004" THEN "East Midlands"
+        WHEN c.Government_Office_Region = "E12000005" THEN "West Midlands"
+        WHEN c.Government_Office_Region = "E12000006" THEN "East of England"
+        WHEN c.Government_Office_Region = "E12000007" THEN "London"
+        WHEN c.Government_Office_Region = "E12000008" THEN "South East"
+        WHEN c.Government_Office_Region = "E12000009" THEN "South West"
+        WHEN c.Government_Office_Region = "E99999999" THEN "England (not otherwise stated)"
+        WHEN c.Government_Office_Region = "L99999999" THEN "Channel Islands"
+        WHEN c.Government_Office_Region = "M99999999" THEN "Isle of Man"
+        WHEN c.Government_Office_Region = "N99999999" THEN "Northern Ireland"
+        WHEN c.Government_Office_Region = "S99999999" THEN "Scotland"
+        WHEN c.Government_Office_Region = "W99999999" THEN "Wales"
+        WHEN c.Government_Office_Region =  "U" THEN "No fixed abode"
+        WHEN c.Government_Office_Region =  "X" THEN "Foreign"
+        WHEN c.Government_Office_Region =  "Y" THEN "Unknown"
+      end
+    end,
+  CASE
+    WHEN EXISTS(SELECT 1 FROM aea_mitigators_data WHERE key = a.key) THEN 'deAdopt'
+    ELSE 'none'
+  END;
+```
+
+## Annex - ICD10 chapters by year
+
+| Chapter | Block    | Title                                                                                               |
+|----------------|----------------|-----------------------------------------|
+| I       | A00--B99 | Certain infectious and parasitic diseases                                                           |
+| II      | C00--D48 | Neoplasms                                                                                           |
+| III     | D50--D89 | Diseases of the blood and blood-forming organs and certain disorders involving the immune mechanism |
+| IV      | E00--E90 | Endocrine, nutritional and metabolic diseases                                                       |
+| V       | F00--F99 | Mental and behavioural disorders                                                                    |
+| VI      | G00--G99 | Diseases of the nervous system                                                                      |
+| VII     | H00--H59 | Diseases of the eye and adnexa                                                                      |
+| VIII    | H60--H95 | Diseases of the ear and mastoid process                                                             |
+| IX      | I00--I99 | Diseases of the circulatory system                                                                  |
+| X       | J00--J99 | Diseases of the respiratory system                                                                  |
+| XI      | K00--K93 | Diseases of the digestive system                                                                    |
+| XII     | L00--L99 | Diseases of the skin and subcutaneous tissue                                                        |
+| XIII    | M00--M99 | Diseases of the musculoskeletal system and connective tissue                                        |
+| XIV     | N00--N99 | Diseases of the genitourinary system                                                                |
+| XV      | O00--O99 | Pregnancy, childbirth and the puerperium                                                            |
+| XVI     | P00--P96 | Certain conditions originating in the perinatal period                                              |
+| XVII    | Q00--Q99 | Congenital malformations, deformations and chromosomal abnormalities                                |
+| XVIII   | R00--R99 | Symptoms, signs and abnormal clinical and laboratory findings, not elsewhere classified             |
+| XIX     | S00--T98 | Injury, poisoning and certain other consequences of external causes                                 |
+| XX      | V01--Y98 | External causes of morbidity and mortality                                                          |
+| XXI     | Z00--Z99 | Factors influencing health status and contact with health services                                  |
+| XXII    | U00--U99 | Codes for special purposes                                                                          |
+
+```{r yearly_icd10}
+apc_mitigators_data |>
+  filter(fyear >= 2011) |> 
+  summarise(activity = sum(activity), .by = c(fyear, pod, chapter_number)) |>
+  mutate(
+    proportion = activity / sum(activity), .by = c(fyear, pod),
+    chapter_number = factor(chapter_number, levels = icd10_levels)  # Convert to ordered factor
+  ) |>
+  arrange(fyear, chapter_number) |>  # Ensures correct sorting
+  pivot_wider(names_from = pod, values_from = c(activity, proportion), names_glue = "{pod}_{.value}") |> 
+  gt() |> 
+  cols_label(fyear = "Fiscal year",
+             chapter_number = "ICD-10 chapter",
+             ends_with("activity") ~ "Activity",
+             ends_with("proportion") ~ "Proportion") |>
+  fmt_number(
+    columns = ends_with("activity"),
+    sep_mark = ",",
+    decimals = 0
+  ) |>
+  fmt_percent(
+    columns = ends_with("proportion"),
+    decimals = 1
+  ) |>
+  tab_spanner(
+    label = "Elective",
+    columns = matches("^IpElec_")
+  ) |>
+  tab_spanner(
+    label = "Emergency",
+    columns = matches("^IpEmer_")
+  ) |>
+  tab_spanner(
+    label = "Maternity",
+    columns = matches("^IpMat_")
+  )
+
+```
