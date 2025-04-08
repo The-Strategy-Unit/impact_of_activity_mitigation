@@ -300,12 +300,6 @@ region_lookup_fn <- function(data, rgn_field) {
   }
 ```
 
-We can see here that the activity data doesn't have the region variable populated prior to 2015/16.
-
-**TO-DO: investigate using the local authority variable `RESLADST` to get the region of the patient. It is populated.**
-
-Tom doing this.
-
 ```{r regional_activity}
 current_mitigators_data |> 
   filter(str_starts(resgor_ons, "E")) |>
