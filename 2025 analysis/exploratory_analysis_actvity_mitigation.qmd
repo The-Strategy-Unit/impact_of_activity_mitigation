@@ -253,7 +253,23 @@ mitigation_comparison |>
   scale_x_continuous(breaks= scales::pretty_breaks())
 ```
 
-## Activity by region
+## Exploratory analyses
+
+### Activity by mitigation type
+
+```{r activity_by_mitig}
+current_mitigators_data |> 
+  summarise(activity = sum(activity), .by = c(fyear, pod, mitigation_type)) |>
+  ggplot(aes(x=fyear, y=activity, colour = mitigation_type)) +
+  geom_line(linewidth = 1) +
+  scale_y_continuous(labels = scales::label_number(suffix = "m", scale = 1e-6), limits = c(0,NA)) +
+  NHSRtheme::scale_colour_nhs() +
+  facet_wrap(~pod, scales = "free_y") +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  ggtitle("Activity counts by pod and mitigation")
+```
+
+### Activity by region
 
 ```{r region_lookup}
 region_lookup_fn <- function(data, rgn_field) {
