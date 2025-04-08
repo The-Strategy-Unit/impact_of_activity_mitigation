@@ -604,15 +604,17 @@ current_mitigators_population_data |>
 
 ## BAMs
 
-We use big additive models (BAMs) instead of general additive models (GAMs) in this analysis given the very large amounts of data being analysed - there are 5.3m rows in the linked data.
+::: callout-note
+We use big additive models (BAMs) instead of general additive models (GAMs) in this analysis given the very large amounts of data being analysed - there are 4.4m rows in the linked data.
 
 To calculate BAMs we need to do the following additional prep:
+
 -   population share needs to be calculated by year, quintile, and region
 -   the sex-icd/type/group variables need to be created
 -   region needs to be a factor
--   need to load the mgcv and MASS packages
--   limit to 201516 onwards given the region issue
-
+-   need to load the {mgcv} package
+-   remove the elective re-direction and substitution cases as well as the non-elective de-adoption cases, given these have extremely low counts
+:::
 
 ```{r bam_data}
 library(mgcv)
