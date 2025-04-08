@@ -472,18 +472,7 @@ population <- read.csv(
 
 There are two sources for the population data:
 
-<!-- -   [English Indices of Deprivation 2019 - LSOA Level: a data cube spreadsheet](https://opendatacommunities.org/slice?dataset=http%3A%2F%2Fopendatacommunities.org%2Fdata%2Fsocietal-wellbeing%2Fimd2019%2Findices&http%3A%2F%2Fopendatacommunities.org%2Fdef%2Fontology%2Fcommunities%2Fsocietal_wellbeing%2Fimd%2Findices=http%3A%2F%2Fopendatacommunities.org%2Fdef%2Fconcept%2Fgeneral-concepts%2Fimd%2Fcombineddeprivation&http%3A%2F%2Fpurl.org%2Flinked-data%2Fcube%23measureType=http%3A%2F%2Fopendatacommunities.org%2Fdef%2Fontology%2Fcommunities%2Fsocietal_wellbeing%2Fimd%2FdecObs) -->
-
-<!-- -   [ONS LSOA11 to LSOA21 best fit lookup](https://geoportal.statistics.gov.uk/datasets/ons::lsoa-2011-to-lsoa-2021-to-local-authority-district-2022-best-fit-lookup-for-ew-v2/about) -->
-
-<!-- -   [English indices of deprivation 2019 Official](https://www.gov.uk/government/statistics/english-indices-of-deprivation-2019) -->
-
-<!--     -   [specific workbook (LSOA11 -\> IMD19)](https://assets.publishing.service.gov.uk/media/5d8b3abded915d0373d3540f/File_1_-_IMD2019_Index_of_Multiple_Deprivation.xlsx) -->
-
 -   [LSOA population estimates](https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/lowersuperoutputareamidyearpopulationestimates) - three workbooks for 2011-14, 2015-18 and 2019 with one worksheet per year. One LSOA21 per row and one column for each year-sex combination with counts.
-
-<!-- -   There is the script from Francis Barton to load the population data from NOMIS in a tidy format too. -->
-
 -   [Finger Tips LSOA21 to IMD19 lookup](https://fingertips.phe.org.uk/documents/2021-lsoa-imd-lookup.xlsx)
 
 ### Wrangling
