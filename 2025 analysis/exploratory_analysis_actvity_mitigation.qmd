@@ -405,15 +405,13 @@ apc_mitigators_data |>
 
 ```
 
-<!-- Across the study period, we can see that the most common chapters for emergency admissions are *X - Diseases of the respiratory system* (12.4%), *XVIII - Symptoms, signs and abnormal clinical and laboratory findings, not elsewhere classified* (16.3%) and *XIX - Injury, poisoning and certain other consequences of external causes* (12.2%). -->
+Across the study period, we can see that the most common chapters for emergency admissions are *XVIII - Symptoms, signs and abnormal clinical and laboratory findings, not elsewhere classified* (17.6%), *X - Diseases of the respiratory system* (13.5%), and *XIX - Injury, poisoning and certain other consequences of external causes* (13.3%).
 
-<!-- For elective, they are *II - Neoplasms* (22.3%), *XI - Diseases of the digestive system* (15.5%) and *XIV - Diseases of the genitourinary system* (13.0%). -->
+For elective, they are *II - Neoplasms* (22.4%), *XI - Diseases of the digestive system* (15.5%) and *XIV - Diseases of the genitourinary system* (13.0%).
 
-<!-- *XV - Pregnancy, childbirth and the puerperium* is unsurprisingly by far the most common (85.8%) for maternity admissions. Almost all of the remaining (12.8%) are *XXI - Factors influencing health status and contact with health services* -->
+The full data by year are printed in the annex.
 
-The ICD10 chapters are printed in the annex.
-
-## Outpatients activity type
+### Outpatients activity type
 
 Below we can see the outpatients attendances by type. As we can see the majority is non-surgical / general medicine, with this growing over the study period from 53% to 59% between 2011 and 2019. Surgical specialties reduced from 39% to 34%.
 
