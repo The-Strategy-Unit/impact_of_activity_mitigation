@@ -553,8 +553,20 @@ current_mitigators_data |>
   
 ```
 
+### Trends in counts of activity by pod and mitigation after joining to population
+Let's also view the growth in activity by pod and mitigation type in the joined data, i.e. once the non-matches are disposed of.
 
-## Exploration of activity rates
+```{r activity_pop_comparison}
+current_mitigators_population_data |> 
+  summarise(activity = sum(activity), .by = c(fyear, pod, mitigation_type)) |>
+  ggplot(aes(x=fyear, y=activity, colour = mitigation_type)) +
+  geom_line(linewidth = 1) +
+  scale_y_continuous(labels = scales::label_number(suffix = "m", scale = 1e-6), limits = c(0,NA)) +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  NHSRtheme::scale_colour_nhs() +
+  facet_wrap(~pod, scales = "free_y") +
+  ggtitle("Activity counts by pod and mitigation type after joining to population data")
+```
 
 We can see the activity rate by IMD quintile in 2019/20 below.
 
