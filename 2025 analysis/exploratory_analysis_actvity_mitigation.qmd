@@ -877,26 +877,7 @@ SELECT
   a.fyear,
   a.group AS pod,
   a.age,
-  CASE 
-    WHEN e.resgor_ons = "E12000001" THEN "North East"
-    WHEN e.resgor_ons = "E12000002" THEN "North West"
-    WHEN e.resgor_ons = "E12000003" THEN "Yorkshire and Humber"
-    WHEN e.resgor_ons = "E12000004" THEN "East Midlands"
-    WHEN e.resgor_ons = "E12000005" THEN "West Midlands"
-    WHEN e.resgor_ons = "E12000006" THEN "East of England"
-    WHEN e.resgor_ons = "E12000007" THEN "London"
-    WHEN e.resgor_ons = "E12000008" THEN "South East"
-    WHEN e.resgor_ons = "E12000009" THEN "South West"
-    WHEN e.resgor_ons = "E99999999" THEN "England (not otherwise stated)"
-    WHEN e.resgor_ons = "L99999999" THEN "Channel Islands"
-    WHEN e.resgor_ons = "M99999999" THEN "Isle of Man"
-    WHEN e.resgor_ons = "N99999999" THEN "Northern Ireland"
-    WHEN e.resgor_ons = "S99999999" THEN "Scotland"
-    WHEN e.resgor_ons = "W99999999" THEN "Wales"
-    WHEN e.resgor_ons =  "U" THEN "No fixed abode"
-    WHEN e.resgor_ons =  "X" THEN "Foreign"
-    WHEN e.resgor_ons =  "Y" THEN "Unknown"
-  END AS region,
+  a.resgor_ons,
   CASE
     WHEN a.sex = '1' THEN 'm'
     ELSE 'f'
@@ -910,41 +891,15 @@ SELECT
   activity_mitigation_table b
   ON a.epikey = b.epikey
 LEFT JOIN
-  hes.silver.apc_diagnoses c 
-  ON a.epikey = c.epikey
-LEFT JOIN
   icd10_codes_gabriel d
-  ON c.diagnosis = d.icd10
-LEFT JOIN
-  hes.silver.apc e
-  ON a.epikey = e.epikey
+  ON a.primary_diagnosis = d.icd10
 WHERE
-  c.diag_order = 1
-  AND a.fyear BETWEEN '201112' AND '201920'
+  a.fyear BETWEEN '201112' AND '201920'
 GROUP BY
   a.fyear,
   a.group,
   a.age,
-  CASE 
-    WHEN e.resgor_ons = "E12000001" THEN "North East"
-    WHEN e.resgor_ons = "E12000002" THEN "North West"
-    WHEN e.resgor_ons = "E12000003" THEN "Yorkshire and Humber"
-    WHEN e.resgor_ons = "E12000004" THEN "East Midlands"
-    WHEN e.resgor_ons = "E12000005" THEN "West Midlands"
-    WHEN e.resgor_ons = "E12000006" THEN "East of England"
-    WHEN e.resgor_ons = "E12000007" THEN "London"
-    WHEN e.resgor_ons = "E12000008" THEN "South East"
-    WHEN e.resgor_ons = "E12000009" THEN "South West"
-    WHEN e.resgor_ons = "E99999999" THEN "England (not otherwise stated)"
-    WHEN e.resgor_ons = "L99999999" THEN "Channel Islands"
-    WHEN e.resgor_ons = "M99999999" THEN "Isle of Man"
-    WHEN e.resgor_ons = "N99999999" THEN "Northern Ireland"
-    WHEN e.resgor_ons = "S99999999" THEN "Scotland"
-    WHEN e.resgor_ons = "W99999999" THEN "Wales"
-    WHEN e.resgor_ons =  "U" THEN "No fixed abode"
-    WHEN e.resgor_ons =  "X" THEN "Foreign"
-    WHEN e.resgor_ons =  "Y" THEN "Unknown"
-  END,
+  a.resgor_ons,
   CASE
     WHEN a.sex = '1' THEN 'm'
     ELSE 'f'
@@ -956,6 +911,8 @@ GROUP BY
 
 ### Outpatient
 
+NB due to the large amounts of data in the outpatients table `nhp.raw_data.opa`, we had to partition this query into sub-periods. For simplicity, we have printed the query without this partitioning below.
+
 ``` sql
 SELECT 
   'opa' AS pod,
@@ -964,67 +921,28 @@ SELECT
   a.sex,
   a.type,
   a.imd_quintile,
-  CASE 
-    WHEN b.resgor_ons = "E12000001" THEN "North East"
-    WHEN b.resgor_ons = "E12000002" THEN "North West"
-    WHEN b.resgor_ons = "E12000003" THEN "Yorkshire and Humber"
-    WHEN b.resgor_ons = "E12000004" THEN "East Midlands"
-    WHEN b.resgor_ons = "E12000005" THEN "West Midlands"
-    WHEN b.resgor_ons = "E12000006" THEN "East of England"
-    WHEN b.resgor_ons = "E12000007" THEN "London"
-    WHEN b.resgor_ons = "E12000008" THEN "South East"
-    WHEN b.resgor_ons = "E12000009" THEN "South West"
-    WHEN b.resgor_ons = "E99999999" THEN "England (not otherwise stated)"
-    WHEN b.resgor_ons = "L99999999" THEN "Channel Islands"
-    WHEN b.resgor_ons = "M99999999" THEN "Isle of Man"
-    WHEN b.resgor_ons = "N99999999" THEN "Northern Ireland"
-    WHEN b.resgor_ons = "S99999999" THEN "Scotland"
-    WHEN b.resgor_ons = "W99999999" THEN "Wales"
-    WHEN b.resgor_ons =  "U" THEN "No fixed abode"
-    WHEN b.resgor_ons =  "X" THEN "Foreign"
-    WHEN b.resgor_ons =  "Y" THEN "Unknown"
-  END AS region,
+  a.resgor_ons,
   CASE
-    WHEN EXISTS(SELECT 1 FROM opa_mitigators_gabriel WHERE attendkey = a.attendkey) THEN 'deAdopt'
+    WHEN isnotnull(b.strategy) THEN 'deAdopt'
     ELSE 'none'
   END AS mitigation_type,
   COUNT(distinct a.attendkey) AS activity
 FROM
   nhp.raw_data.opa a
 LEFT JOIN
-  hes.silver.opa b
-  -- the bronze layer of outpatients data is partioned by fyear and 
-  ON a.attendkey = b.attendkey and a.fyear = b.fyear and a.procode3 = b.procode3
+  nhp.raw_data.opa_mitigators b
+  ON a.attendkey = b.attendkey AND a.provider = b.provider AND a.fyear = b.fyear
 WHERE
-  a.fyear BETWEEN 201112 AND 201920
+  a.fyear between 201112 and 201920 and a.attendance = 1
 GROUP BY
   a.fyear, 
   a.age, 
   a.sex,
   a.type,
   a.imd_quintile,
-  CASE 
-    WHEN b.resgor_ons = "E12000001" THEN "North East"
-    WHEN b.resgor_ons = "E12000002" THEN "North West"
-    WHEN b.resgor_ons = "E12000003" THEN "Yorkshire and Humber"
-    WHEN b.resgor_ons = "E12000004" THEN "East Midlands"
-    WHEN b.resgor_ons = "E12000005" THEN "West Midlands"
-    WHEN b.resgor_ons = "E12000006" THEN "East of England"
-    WHEN b.resgor_ons = "E12000007" THEN "London"
-    WHEN b.resgor_ons = "E12000008" THEN "South East"
-    WHEN b.resgor_ons = "E12000009" THEN "South West"
-    WHEN b.resgor_ons = "E99999999" THEN "England (not otherwise stated)"
-    WHEN b.resgor_ons = "L99999999" THEN "Channel Islands"
-    WHEN b.resgor_ons = "M99999999" THEN "Isle of Man"
-    WHEN b.resgor_ons = "N99999999" THEN "Northern Ireland"
-    WHEN b.resgor_ons = "S99999999" THEN "Scotland"
-    WHEN b.resgor_ons = "W99999999" THEN "Wales"
-    WHEN b.resgor_ons =  "U" THEN "No fixed abode"
-    WHEN b.resgor_ons =  "X" THEN "Foreign"
-    WHEN b.resgor_ons =  "Y" THEN "Unknown"
-  END,
+  a.resgor_ons,
   CASE
-    WHEN EXISTS(SELECT 1 FROM opa_mitigators_gabriel WHERE attendkey = a.attendkey) THEN 'deAdopt'
+    WHEN isnotnull(b.strategy) THEN 'deAdopt'
     ELSE 'none'
   END;
 ```
@@ -1032,126 +950,42 @@ GROUP BY
 ### A&E
 
 ``` sql
-select 
-  'aea' as pod, 
+SELECT 
+  'aae' AS pod, 
   a.fyear, 
   a.age, 
   a.sex, 
   a.group,
   a.imd_quintile,
   CASE
-    WHEN a.fyear < 201920 THEN
-      CASE
-        WHEN b.resgor_ons = "E12000001" THEN "North East"
-        WHEN b.resgor_ons = "E12000002" THEN "North West"
-        WHEN b.resgor_ons = "E12000003" THEN "Yorkshire and Humber"
-        WHEN b.resgor_ons = "E12000004" THEN "East Midlands"
-        WHEN b.resgor_ons = "E12000005" THEN "West Midlands"
-        WHEN b.resgor_ons = "E12000006" THEN "East of England"
-        WHEN b.resgor_ons = "E12000007" THEN "London"
-        WHEN b.resgor_ons = "E12000008" THEN "South East"
-        WHEN b.resgor_ons = "E12000009" THEN "South West"
-        WHEN b.resgor_ons = "E99999999" THEN "England (not otherwise stated)"
-        WHEN b.resgor_ons = "L99999999" THEN "Channel Islands"
-        WHEN b.resgor_ons = "M99999999" THEN "Isle of Man"
-        WHEN b.resgor_ons = "N99999999" THEN "Northern Ireland"
-        WHEN b.resgor_ons = "S99999999" THEN "Scotland"
-        WHEN b.resgor_ons = "W99999999" THEN "Wales"
-        WHEN b.resgor_ons =  "U" THEN "No fixed abode"
-        WHEN b.resgor_ons =  "X" THEN "Foreign"
-        WHEN b.resgor_ons =  "Y" THEN "Unknown"
-      end
-    ELSE
-      CASE
-        WHEN c.Government_Office_Region = "E12000001" THEN "North East"
-        WHEN c.Government_Office_Region = "E12000002" THEN "North West"
-        WHEN c.Government_Office_Region = "E12000003" THEN "Yorkshire and Humber"
-        WHEN c.Government_Office_Region = "E12000004" THEN "East Midlands"
-        WHEN c.Government_Office_Region = "E12000005" THEN "West Midlands"
-        WHEN c.Government_Office_Region = "E12000006" THEN "East of England"
-        WHEN c.Government_Office_Region = "E12000007" THEN "London"
-        WHEN c.Government_Office_Region = "E12000008" THEN "South East"
-        WHEN c.Government_Office_Region = "E12000009" THEN "South West"
-        WHEN c.Government_Office_Region = "E99999999" THEN "England (not otherwise stated)"
-        WHEN c.Government_Office_Region = "L99999999" THEN "Channel Islands"
-        WHEN c.Government_Office_Region = "M99999999" THEN "Isle of Man"
-        WHEN c.Government_Office_Region = "N99999999" THEN "Northern Ireland"
-        WHEN c.Government_Office_Region = "S99999999" THEN "Scotland"
-        WHEN c.Government_Office_Region = "W99999999" THEN "Wales"
-        WHEN c.Government_Office_Region =  "U" THEN "No fixed abode"
-        WHEN c.Government_Office_Region =  "X" THEN "Foreign"
-        WHEN c.Government_Office_Region =  "Y" THEN "Unknown"
-      end
-  end as region,
+    WHEN a.fyear < 201920 THEN a.resgor_ons
+    ELSE b.RGN19CD
+  END AS resgor_ons,
   CASE
-    WHEN EXISTS(SELECT 1 FROM aea_mitigators_data WHERE key = a.key) THEN 'deAdopt'
+    WHEN EXISTS(SELECT 1 FROM aea_mitigators_data WHERE key = a.key) THEN 'reSu'
     ELSE 'none'
   END AS mitigation_type,
-  count(distinct a.key) as activity
-from
+  COUNT(DISTINCT a.key) AS activity
+FROM
   nhp.raw_data.ecds a
-left join
-  hes.silver.aae b
-  -- this table is partitioned by fyear and procode3, so we join on those too to optimise the query
-  on a.key = b.aekey and a.fyear = b.fyear and a.procode3 = b.procode3 and a.fyear <= 201819
-left join
-  hes.silver.ecds c
-  on a.key = c.EC_Ident and a.fyear = 201920
-where
-  a.fyear between 201112 and 201920
-  and a.aedepttype = '01'
-group by
+INNER JOIN
+  strategyunit.default.lad_19_rgn_19_en_lu_948748_b_0_eaa_54_fe_888_a_604_b_126_f_5_e_672_4818463568216355194 b
+  ON a.resladst_ons = b.LAD19CD
+WHERE
+  fyear BETWEEN 201112 AND 201920
+  AND aedepttype = '01'
+GROUP BY
   a.fyear, 
   a.age, 
   a.sex, 
   a.group,
   a.imd_quintile,
   CASE
-    WHEN a.fyear < 201920 THEN
-      CASE
-        WHEN b.resgor_ons = "E12000001" THEN "North East"
-        WHEN b.resgor_ons = "E12000002" THEN "North West"
-        WHEN b.resgor_ons = "E12000003" THEN "Yorkshire and Humber"
-        WHEN b.resgor_ons = "E12000004" THEN "East Midlands"
-        WHEN b.resgor_ons = "E12000005" THEN "West Midlands"
-        WHEN b.resgor_ons = "E12000006" THEN "East of England"
-        WHEN b.resgor_ons = "E12000007" THEN "London"
-        WHEN b.resgor_ons = "E12000008" THEN "South East"
-        WHEN b.resgor_ons = "E12000009" THEN "South West"
-        WHEN b.resgor_ons = "E99999999" THEN "England (not otherwise stated)"
-        WHEN b.resgor_ons = "L99999999" THEN "Channel Islands"
-        WHEN b.resgor_ons = "M99999999" THEN "Isle of Man"
-        WHEN b.resgor_ons = "N99999999" THEN "Northern Ireland"
-        WHEN b.resgor_ons = "S99999999" THEN "Scotland"
-        WHEN b.resgor_ons = "W99999999" THEN "Wales"
-        WHEN b.resgor_ons =  "U" THEN "No fixed abode"
-        WHEN b.resgor_ons =  "X" THEN "Foreign"
-        WHEN b.resgor_ons =  "Y" THEN "Unknown"
-      end
-    ELSE
-      CASE
-        WHEN c.Government_Office_Region = "E12000001" THEN "North East"
-        WHEN c.Government_Office_Region = "E12000002" THEN "North West"
-        WHEN c.Government_Office_Region = "E12000003" THEN "Yorkshire and Humber"
-        WHEN c.Government_Office_Region = "E12000004" THEN "East Midlands"
-        WHEN c.Government_Office_Region = "E12000005" THEN "West Midlands"
-        WHEN c.Government_Office_Region = "E12000006" THEN "East of England"
-        WHEN c.Government_Office_Region = "E12000007" THEN "London"
-        WHEN c.Government_Office_Region = "E12000008" THEN "South East"
-        WHEN c.Government_Office_Region = "E12000009" THEN "South West"
-        WHEN c.Government_Office_Region = "E99999999" THEN "England (not otherwise stated)"
-        WHEN c.Government_Office_Region = "L99999999" THEN "Channel Islands"
-        WHEN c.Government_Office_Region = "M99999999" THEN "Isle of Man"
-        WHEN c.Government_Office_Region = "N99999999" THEN "Northern Ireland"
-        WHEN c.Government_Office_Region = "S99999999" THEN "Scotland"
-        WHEN c.Government_Office_Region = "W99999999" THEN "Wales"
-        WHEN c.Government_Office_Region =  "U" THEN "No fixed abode"
-        WHEN c.Government_Office_Region =  "X" THEN "Foreign"
-        WHEN c.Government_Office_Region =  "Y" THEN "Unknown"
-      end
-    end,
+    WHEN a.fyear < 201920 THEN a.resgor_ons
+    ELSE b.RGN19CD
+  END,
   CASE
-    WHEN EXISTS(SELECT 1 FROM aea_mitigators_data WHERE key = a.key) THEN 'deAdopt'
+    WHEN EXISTS(SELECT 1 FROM aea_mitigators_data WHERE key = a.key) THEN 'reSu'
     ELSE 'none'
   END;
 ```
@@ -1159,7 +993,7 @@ group by
 ## Annex - ICD10 chapters by year
 
 | Chapter | Block    | Title                                                                                               |
-|----------------|----------------|-----------------------------------------|
+|-----------------|-----------------|--------------------------------------|
 | I       | A00--B99 | Certain infectious and parasitic diseases                                                           |
 | II      | C00--D48 | Neoplasms                                                                                           |
 | III     | D50--D89 | Diseases of the blood and blood-forming organs and certain disorders involving the immune mechanism |
