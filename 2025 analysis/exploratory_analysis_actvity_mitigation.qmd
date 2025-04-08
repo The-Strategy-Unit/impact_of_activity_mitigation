@@ -602,8 +602,6 @@ current_mitigators_population_data |>
   
 ```
 
-
-
 ## BAMs
 
 We use big additive models (BAMs) instead of general additive models (GAMs) in this analysis given the very large amounts of data being analysed - there are 5.3m rows in the linked data.
@@ -618,74 +616,73 @@ To calculate BAMs we need to do the following additional prep:
 
 ```{r bam_data}
 library(mgcv)
-library(MASS)
+
+current_mitigators_population_data <- current_mitigators_population_data |> 
+  mutate(resgor_ons = factor(resgor_ons),
+         mitigation_type = factor(mitigation_type,  levels = c("none", "deAdopt", "prev", "reSu")))
 
 gam_data_apc <- current_mitigators_population_data |> 
   filter(pod %in% c("IpElec", "IpEmer")) |> 
-  dplyr::select(!c(type, group)) |> 
-  mutate(population_share = population / sum(population), 
-         .by = c(fyear, imd_quintile, resgor_ons)) |> 
-  mutate(sex_icd = factor(paste(sex, chapter_number, sep = "_")),
-         resgor_ons = factor(resgor_ons))
+  filter(!(pod == "IpElec" & mitigation_type == "reSu"),
+         !(pod == "IpEmer" & mitigation_type == "deAdopt")) |> 
+  dplyr::select(!c(type, group)) |>  
+  mutate(population_share = population / mean(population)) |> 
+  mutate(sex_icd = factor(paste(sex, chapter_number, sep = "_")))
 
 gam_data_op <- current_mitigators_population_data |> 
   filter(pod == "opAtt") |> 
   dplyr::select(!c(group, chapter_number)) |> 
-  mutate(population_share = population / sum(population), 
-         .by = c(fyear, imd_quintile, resgor_ons)) |> 
-  mutate(sex_type = factor(paste(sex, type, sep = "_")),
-         resgor_ons = factor(resgor_ons))
+  mutate(population_share = population / mean(population)) |> 
+  mutate(sex_type = factor(paste(sex, type, sep = "_")))
   
 
 gam_data_aae <- current_mitigators_population_data |> 
-  filter(pod == "edAtt") |> 
+  filter(pod == "edAtt" & fyear) |> 
   dplyr::select(!c(type, chapter_number)) |> 
-  mutate(population_share = population / sum(population), 
-         .by = c(fyear, imd_quintile, resgor_ons)) |> 
-  mutate(sex_group = factor(paste(sex, group, sep = "_")),
-         resgor_ons = factor(resgor_ons))
+  mutate(population_share = population / mean(population)) |> 
+  mutate(sex_group = factor(paste(sex, group, sep = "_")))
 ```
 
+### Elective BAM
 
-### Non-elective BAM \| 2015-16 onwards \| no sampling \| age smooth without icd
+```{r elective_bam}
+elective_bam_re_start <- Sys.time()
+elective_bam_re <- bam(
+  activity ~ s(age, by = sex_icd) + sex + mitigation_type + fyear + fyear:mitigation_type + chapter_number + imd_quintile + s(resgor_ons, bs = "re") + offset(log(population)),
+  family = nb(link = 'log'),
+  weights = population_share,
+  data = gam_data_apc,
+  subset = (pod == "IpElec"),
+  discrete = TRUE)
+elective_bam_re_end <- Sys.time()
+elective_bam_re_time_taken <- elective_bam_re_end - elective_bam_re_start
+```
 
-Commented out due to error:
+The elective BAM takes `r as.character(elective_bam_re_time_taken)` `r attr(elective_bam_re_time_taken, "units")`. The results are below.
 
-Error in `X[, pstart[i] - 1 + 1:object$nsdf[i]] <- Xp`:
-! number of items to replace is not a multiple of replacement length
-Backtrace:
- 1. mgcv::bam(...)
- 2. mgcv:::bgam.fit(...)
- 4. mgcv::predict.gam(...)
+```{r elective_bam_results}
+broom::tidy(elective_bam_re, parametric = TRUE) |>
+  gt()
+```
+
+### Non-elective BAM
 
 ```{r non_elective_bam}
-non_elective_bam_fe_start <- Sys.time()
-non_elective_bam_fe <- bam(
-  activity ~ s(age, by = sex_icd) + sex + mitigation_type + fyear + fyear:mitigation_type + chapter_number + imd_quintile + resgor_ons + offset(log(population)),
-  family = nb(link = 'log'),
-  weights = population_share,
-  data = gam_data_apc,
-  subset = (pod == "IpEmer"))
-non_elective_bam_fe_end <- Sys.time()
-non_elective_bam_fe_time_taken <- non_elective_bam_fe_end - non_elective_bam_fe_start
-
 non_elective_bam_re_start <- Sys.time()
 non_elective_bam_re <- bam(
-  activity ~ s(age, by = sex_icd) + sex + mitigation_type + fyear + fyear:mitigation_type + chapter_number + imd_quintile + s(resgor_ons, by = "bs") + offset(log(population)),
+  activity ~ s(age, by = sex_icd) + sex + mitigation_type + fyear + fyear:mitigation_type + chapter_number + imd_quintile + s(resgor_ons, bs = "re") + offset(log(population)),
   family = nb(link = 'log'),
   weights = population_share,
   data = gam_data_apc,
-  subset = (pod == "IpEmer"))
+  subset = (pod == "IpEmer"),
+  discrete = TRUE)
 non_elective_bam_re_end <- Sys.time()
 non_elective_bam_re_time_taken <- non_elective_bam_re_end - non_elective_bam_re_start
 ```
 
-```{r non_elective_bam_results}
-non_elective_bam_fe_time_taken
-broom::tidy(non_elective_bam_fe, parametric = TRUE) |>
-  gt()
+The non-elective BAM takes `r as.character(non_elective_bam_re_time_taken)` `r attr(non_elective_bam_re_time_taken, "units")`. The results are below.
 
-non_elective_bam_re_time_taken
+```{r non_elective_bam_results}
 broom::tidy(non_elective_bam_re, parametric = TRUE) |>
   gt()
 ```
@@ -693,31 +690,20 @@ broom::tidy(non_elective_bam_re, parametric = TRUE) |>
 ### OPA bam
 
 ```{r opa_bams}
-opa_fe_start <- Sys.time()
-opa_bam_fe <- bam(
-  activity ~ s(age, by = sex_type) + sex + mitigation_type + fyear + fyear:mitigation_type + type + imd_quintile + resgor_ons + offset(log(population)),
-  family = nb(link = 'log'),
-  weights = population_share,
-  data = gam_data_op)
-opa_fe_end <- Sys.time()
-opa_fe_time_taken <- opa_fe_end - opa_fe_start
-
 opa_re_start <- Sys.time()
 opa_bam_re <- bam(
   activity ~ s(age, by = sex_type) + sex + mitigation_type + fyear + fyear:mitigation_type + type + imd_quintile + s(resgor_ons, bs = 're') + offset(log(population)),
   family = nb(link = 'log'),
   weights = population_share,
-  data = gam_data_op)
+  data = gam_data_op,
+  discrete = TRUE)
 opa_re_end <- Sys.time()
 opa_re_time_taken <- opa_re_end - opa_re_start
 ```
 
-```{r opa_bam_results}
-opa_fe_time_taken
-broom::tidy(opa_bam_fe, parametric = TRUE) |> 
-  gt()
+The outpatient BAM takes `r as.character(opa_re_time_taken)` `r attr(opa_re_time_taken, "units")`. The results are below:
 
-opa_re_time_taken
+```{r opa_bam_results}
 broom::tidy(opa_bam_re, parametric = TRUE) |> 
   gt()
 ```
@@ -725,33 +711,25 @@ broom::tidy(opa_bam_re, parametric = TRUE) |>
 ### ED bam
 
 ```{r ed_bams}
-ed_fe_start <- Sys.time()
-ed_bam_fe <- bam(
-  activity ~ s(age, by = sex_group) + sex + mitigation_type + fyear + fyear:mitigation_type + group + imd_quintile + resgor_ons + offset(log(population)),
-  family = nb(link = 'log'),
-  weights = population_share,
-  data = gam_data_aae)
-ed_fe_end <- Sys.time()
-ed_fe_time_taken <- ed_fe_end - ed_fe_start
-
 ed_re_start <- Sys.time()
 ed_bam_re <- bam(
   activity ~ s(age, by = sex_group) + sex + mitigation_type + fyear + fyear:mitigation_type + group + imd_quintile + s(resgor_ons, bs = 're') + offset(log(population)),
   family = nb(link = 'log'),
   weights = population_share,
-  data = gam_data_aae)
+  data = gam_data_aae,
+  discrete = TRUE)
 ed_re_end <- Sys.time()
 ed_re_time_taken <- ed_re_end - ed_re_start
 ```
 
-```{r ed_bam_results}
-ed_fe_time_taken
-broom::tidy(ed_bam_fe, parametric = TRUE) |> 
-  gt()
+The ED BAM takes `r as.character(ed_re_time_taken)` `r attr(ed_re_time_taken, "units")`. The results are below:
 
+```{r ed_bam_results}
 ed_re_time_taken
 broom::tidy(ed_bam_re, parametric = TRUE) |> 
   gt()
+```
+
 
 ```
 
