@@ -530,18 +530,14 @@ current_mitigators_population_data <- current_mitigators_data |>
 glimpse(current_mitigators_population_data)
 ```
 
-### Inspecting the join quality
-
+::: callout-note
 -   The population data is perfectly filled in for all combinations of year, age, sex, region, imd quintile. Therefore, any rows which are dropped in the inner join are because of the activity data
--   The drop is from 5,270,932 to 4,373,532 which equates to 897,400 fewer rows
--   There are 591,228 rows in the activity data which have year prior to 2015/16 and thus the region isn't filled in
--   So there are 897,400 - 591,228 = 306,172 rows in the activity data post-2015/16 that are dropped
--   The below chunk shows that there are 305,951 rows in post-201516 data which are not English regions, i.e. they won't match  
--   **Given all the rows prior to 2015/16 (591,228) and 305,951 in the data after that have values which won't match, this demonstrates that the overwhelming majority of the non-matches (897,179 out of 897,400) are to do with the region variable.** 
+-   The drop is from 8,231,327 to 7,808,138 which equates to 423,189 fewer rows
+-   There are 422,561 rows in the activity data for which the region variable is not one of the 9 Government Office Regions, thus the vast majority of rows which don't pass through the join are due to that.
+:::
 
-```{r}
+```{r region_check}
 current_mitigators_data |>
-  filter(fyear >= 2015) |>
   mutate(region_known = if_else(
     resgor_ons %in% c(
       "E12000001", "E12000002", "E12000003", "E12000004", "E12000005",
@@ -550,7 +546,11 @@ current_mitigators_data |>
     "England known abode",
     "Other"
   )) |>
-  count(region_known)
+  count(region_known) |> 
+  janitor::adorn_totals() |> 
+  gt::gt(caption = "Mitigators data by region") |> 
+  gt::fmt_number(decimals = 0)
+  
 ```
 
 
