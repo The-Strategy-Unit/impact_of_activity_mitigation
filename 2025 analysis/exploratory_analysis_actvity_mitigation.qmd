@@ -14,9 +14,45 @@ editor: visual
 
 ## Introduction
 
-The activity mitigation analysis is being updated. As part of that, we have moved to using Data Bricks to extract the data. This is about comparing the results to one another. There may be changes to do with updated logic for flagging mitigators and various differences in inclusions and exclusions.
+In this analysis we are determining the impact of activity mitigation efforts by viewing the growth rates of activity in scope of different types of mitigators relative to the counterfactual of non-mitigatable activity. This serves as a sequel to previous analysis that was conducted in the first half of 2024.
 
-The other key difference is that for this analysis we are bringing in data on diagnosis. (These are ICD10 chapter for APC; ambulance/walk-in for ED; surgical / non-surgical / maternity for outpatient.)
+There are three types of mitigation considered:
+
+-   prevention (`prev`)
+-   redirection and substitution (`reSu`)
+-   de-adoption (`deAdopt`)
+
+We also have the counterfactual `none`.
+
+We also stratify the analysis by four points of delivery:
+
+-   elective inpatient admissions ("IpElec"),
+-   non-elective inpatient admissions ("IpEmer")
+-   outpatient attendances ("opAtt")
+-   ED attendances ("edAtt")
+
+The previous analysis controlled for population growth by age and sex. In this project we are additionally controlling for:
+
+-   deprivation quintile
+-   region
+-   case mix:
+    -   for inpatients admissions, the ICD-10 chapter of the principal diagnosis
+    -   for outpatients attendances, the group (surgical, non-surgical and maternity)
+    -   for ED attendances, the arrival type (ambulance and walk-in)
+
+## Structure
+
+The collection of the data from HES occurs in [a Data Bricks notebook](https://adb-4243551358552236.16.azuredatabricks.net/editor/notebooks/3706892377783776?o=4243551358552236).
+
+We make some comparisons to the previous data by pod and mitigation type.
+
+Subsequently we provide some exploratory analyses of the latest data, including breaking the activity down by the new variables being controlled for.
+
+We then load in ONS population data by year, age, sex, region and deprivation quintile.
+
+This is joined onto the activity data and we look at the activity rates.
+
+Finally we run some initial regression models to calculate the differential growth rates of the activity in each pod by the mitigation type relative to the non-mitigatable activity.
 
 ```{r libraries}
 library(tidyverse)
