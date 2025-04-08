@@ -87,7 +87,8 @@ apc_mitigators_data <- apc_mitigators_data |>
            "non-elective" ~ "IpEmer",
            "elective" ~ "IpElec",
            "maternity" ~ "IpMat"
-         ))
+         )) |> 
+  filter(pod != "IpMat")
 
 ```
 
@@ -165,7 +166,7 @@ mitigators_data_previous <- read.csv(
 
 # patching the rationing vs de-adoption issue
 mitigators_data_previous <- mitigators_data_previous |> 
-  #filter(pod %in% c("IpElec", "IpMat", "IpEmer")) |> 
+  filter(pod != "IpMat") |>
   mutate(mitigatable = case_when(
     mitigatable == "rati" ~ "deAdopt",
     TRUE ~ mitigatable)) |> 
