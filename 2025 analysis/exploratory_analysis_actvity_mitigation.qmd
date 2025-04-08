@@ -1,10 +1,14 @@
 ---
-title: "Exploration of activity mitigation data"
+title: "Activity mitigation analysis (Spring 2025)"
+subtitle: "Updated analysis based on 2023/24 project incorporating deprivation, diagnosis and region"
+date: today
+author: "Gabriel Hobro"
 format: 
   html:
     embed-resources: true
     code-fold: true
     warning: false
+    toc: true
 editor: visual
 ---
 
