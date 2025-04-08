@@ -568,6 +568,8 @@ current_mitigators_population_data |>
   ggtitle("Activity counts by pod and mitigation type after joining to population data")
 ```
 
+### Exploration of activity rates
+
 We can see the activity rate by IMD quintile in 2019/20 below.
 
 ```{r activity_rates_by_imd}
