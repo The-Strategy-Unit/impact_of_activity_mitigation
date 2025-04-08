@@ -732,7 +732,91 @@ broom::tidy(ed_bam_re, parametric = TRUE) |>
   gt()
 ```
 
+## Summary - growth rates
 
+The below table presents the relative growth rates for each type of mitigation by pod relative to the counterfactual of non-mitigatable activity:
+
+```{r growth_rates}
+purrr::map_dfr(
+  list(
+    "elective" = elective_bam_re, 
+    "non-elective" = non_elective_bam_re, 
+    "outpatients" = opa_bam_re, 
+    "ED" = ed_bam_re), 
+  ~broom::tidy(., parametric = TRUE),
+  .id = "pod") |> 
+  filter(str_ends(term, ":fyear")) |> 
+  mutate(mitigation_type = str_extract(term, "(?<=mitigation_type)(.*?)(?=:fyear)"),
+         growth = exp(estimate),
+         lower_ci = exp(estimate - 1.96 * std.error),
+         upper_ci = exp(estimate + 1.96 * std.error)) |> 
+  dplyr::select(pod, mitigation_type, growth, lower_ci, upper_ci) |> 
+  gt::gt()
+
+```
+
+## Age-sex standardisation
+
+For comparison we present standardised rates of each mitigation type and pod in a chart. The standardisation is using the baseline in 2015/16 as the reference population, controlling for age, sex, region and deprivation quintile.
+
+```{r age_sex_standardisation_calculation}
+# 1. Filter for the baseline year (assuming the earliest year is the baseline)
+baseline_year <- current_mitigators_population_data |>
+  summarise(baseline_year = min(fyear)) |>
+  pull(baseline_year)
+
+baseline_population <- current_mitigators_population_data |>
+  filter(fyear == baseline_year) |>
+  summarise(
+    baseline_activity = sum(activity),
+    baseline_population = sum(population),
+    .by = c(pod, mitigation_type, age, sex, resgor_ons, imd_quintile)
+  )
+
+# 2. Calculate the total activity and total population for each year, pod, mitigation_type, age, and sex
+yearly_data <- current_mitigators_population_data |>
+  summarise(
+    yearly_activity = sum(activity),
+    yearly_population = sum(population),
+    .by = c(fyear, pod, mitigation_type, age, sex, resgor_ons, imd_quintile)
+  )
+
+# 3. Join with the baseline population
+standardized_rates_data <- yearly_data |>
+  left_join(
+    baseline_population,
+    by = c("pod", "mitigation_type", "age", "sex", "resgor_ons", "imd_quintile")
+  ) |>
+  filter(!is.na(baseline_population)) # Remove groups not present in the baseline
+
+# 4. Calculate the age-sex specific rates in each year, by pod and mitigation_type
+standardized_rates_data <- standardized_rates_data |>
+  mutate(age_sex_specific_rate = yearly_activity / yearly_population)
+
+# 5. Calculate the expected number of events (weighted activity) for each year, pod, and mitigation_type using the baseline population structure
+standardized_rates_data <- standardized_rates_data |>
+  summarise(
+    expected_activity = sum(age_sex_specific_rate * baseline_population),
+    total_baseline_population = sum(baseline_population),
+    .by = c(fyear, pod, mitigation_type)
+  )
+
+# 6. Calculate the age-sex standardised rate per year, pod, and mitigation_type
+age_sex_standardised_rates <- standardized_rates_data |>
+  mutate(age_sex_standardised_rate = expected_activity / total_baseline_population)
+```
+
+```{r age_sex_standardisation_plot}
+age_sex_standardised_rates |> 
+  filter(!(pod=="edAtt" & fyear == 2019)) |> 
+  ggplot(aes(x=fyear, y=expected_activity, colour = mitigation_type)) +
+  geom_line(linewidth=1) +
+  scale_y_continuous(labels = scales::label_number(suffix = "m", scale = 1e-6)) +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  facet_wrap(~pod, scales = "free_y") +
+  NHSRtheme::scale_colour_nhs() +
+  labs(title = "Standardised rates of activity by pod and mitigation type",
+       subtitle = "Standardisation by age, sex, region, and IMD19 quintile")
 ```
 
 ## Annex - Data Bricks queries
