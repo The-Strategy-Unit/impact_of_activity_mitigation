@@ -839,24 +839,192 @@ broom::tidy(ed_bam_re, parametric = TRUE) |>
 
 The below table presents the relative growth rates for each type of mitigation by pod relative to the counterfactual of non-mitigatable activity:
 
-```{r growth_rates}
-purrr::map_dfr(
-  list(
-    "elective" = elective_bam_re, 
-    "non-elective" = non_elective_bam_re, 
-    "outpatients" = opa_bam_re, 
-    "ED" = ed_bam_re), 
-  ~broom::tidy(., parametric = TRUE),
-  .id = "pod") |> 
-  filter(str_ends(term, ":fyear")) |> 
-  mutate(mitigation_type = str_extract(term, "(?<=mitigation_type)(.*?)(?=:fyear)"),
-         growth = exp(estimate),
-         lower_ci = exp(estimate - 1.96 * std.error),
-         upper_ci = exp(estimate + 1.96 * std.error)) |> 
-  dplyr::select(pod, mitigation_type, growth, lower_ci, upper_ci) |> 
-  gt::gt()
+```{r growth_rates_functions}
+extract_model_estimates <- function(tidy_results) {
+  tidy_results |> 
+    mutate(point_estimate = scales::percent(exp(estimate) - 1, accuracy = 0.01),
+           lower_ci = scales::percent(exp(estimate - 1.96 * std.error) - 1, accuracy = 0.01),
+           higher_ci = scales::percent(exp(estimate + 1.96 * std.error) - 1, accuracy = 0.01),
+           value = paste0(point_estimate, " (", lower_ci, ", ", higher_ci, ")")) 
+}
+
+
+convert_term_names <- function(data) {
+  data |> mutate(
+    term = case_when(
+      term == "fyear" ~ "none",
+      grepl("prev", term) ~ "prev",
+      grepl("deAdopt", term) ~ "deAdopt",
+      grepl("reSu", term) ~ "reSu",
+      TRUE ~ NA_character_))
+}
+
+
+get_combined_terms <- function(model, term) {
+  broom::tidy(multcomp::glht(model, paste0("fyear + ", term, " = 0")))
+}
+
+
+extract_total_model_results <- function(gam, df_name) {
+  
+  variable_names <- c("mitigation_typeprev:fyear",
+                      "mitigation_typedeAdopt:fyear",
+                      "mitigation_typereSu:fyear")
+
+  model_results <- broom::tidy(gam, parametric = TRUE)
+  
+  terms <- model_results  |> 
+    filter(term %in% c("fyear",variable_names)) |> 
+    convert_term_names() |> 
+    mutate(name = if_else(term == "none",
+                          "Growth p.a.",
+                          "Difference in growth rate p.a.")) |> 
+    extract_model_estimates() |> 
+    dplyr::select(term, name, value) 
+  
+  coefficients_of_interest <- model_results$term[model_results$term %in% variable_names]
+  
+  comb_model_results <- map_dfr(coefficients_of_interest, ~get_combined_terms(gam, .))
+  
+  comb_terms <- comb_model_results |> 
+    mutate(name = "Growth p.a.") |> 
+    extract_model_estimates()  |> 
+    dplyr::select(term = contrast, name, value) |> 
+    convert_term_names()
+  
+  bind_rows(terms, comb_terms) |> 
+    pivot_wider() |> 
+    mutate(pod=df_name, .before = 1)
+}
 
 ```
+
+```{r growth_rates_table}
+bams <- list(
+  "IpElec" = elective_bam_re,
+  "IpEmer" = non_elective_bam_re,
+  "opAtt" = opa_bam_re,
+  "edAtt" = ed_bam_re
+)
+
+
+
+# Use map2 from purrr to pass both the data frames and their names
+total_model_results <- map2(bams, names(bams), extract_total_model_results) |> 
+  bind_rows() |> 
+  rename(mitigation_type = term) |> 
+  pod_lengthener_fn() |> 
+  mitigator_lengthener_fn() |> 
+  dplyr::select(`Point of delivery` = pod_long, Mitigation = mitigatable_long, `Growth p.a.`, `Difference in growth rate p.a.`)
+
+total_model_results |> 
+  arrange(`Point of delivery`, desc(Mitigation)) |> 
+  gt::gt()
+```
+
+## Comparison of resuls
+
+### Previous results from paper
+
+The previous results from the paper are below.
+
+```{r load_prev_results}
+previous_gam_results <- readxl::read_excel(here("2025 analysis","previous gam results.xlsx"))
+
+previous_gam_results |> 
+  mutate(
+    `Point of delivery` = factor(
+      `Point of delivery`,
+      levels = c("Elective admission", "Non-elective admission", "Outpatient attendance", "ED attendance")
+      )
+    ) |> 
+  arrange(`Point of delivery`, desc(Mitigation)) |> 
+  gt::gt(caption = "GAM results from previous paper")
+```
+
+### Re-running on prior gam equation
+
+```{r running_old}
+# derive the data 
+# (one large df given now all the gams are based on same co-varariates
+# and will run much quicker)
+gam_data_for_previous_equation <- current_mitigators_population_data |> 
+  filter(!(pod == "IpElec" & mitigation_type == "reSu"),
+         !(pod == "IpEmer" & mitigation_type == "deAdopt")) |> 
+  summarise(activity = sum(activity),
+            population = sum(population),
+            .by = c(pod, fyear, age, sex, mitigation_type)) |> 
+  mutate(population_share = population / mean(population), .by = pod) |> 
+  mutate(sex_mitigation_type = factor(paste(sex, mitigation_type, sep = "_")))
+
+
+pods <- list("IpElec", "IpEmer", "opAtt", "edAtt")
+
+# create a function which will run with variable of the pod in question
+previous_gam_function <- function(chosen_pod) {
+  gam(
+    activity ~ s(age, by = sex_mitigation_type) + sex + mitigation_type + fyear + fyear:mitigation_type + offset(log(population)),
+    family = nb(link = "log"),
+    weights = population_share,
+    data = gam_data_for_previous_equation,
+    subset = (pod == chosen_pod))
+}
+
+previous_gams_with_new_data <- map(pods, previous_gam_function)
+
+names(previous_gams_with_new_data) <- list(
+  "IpElec",
+  "IpEmer",
+  "opAtt",
+  "edAtt")
+
+previous_model_new_extract_results <- map2(previous_gams_with_new_data, names(previous_gams_with_new_data), extract_total_model_results) |> 
+  bind_rows() |> 
+  rename(mitigation_type = term) |> 
+  mitigator_lengthener_fn() |> 
+  pod_lengthener_fn() |> 
+  dplyr::select(`Point of delivery` = pod_long, Mitigation = mitigatable_long, `Growth p.a.`, `Difference in growth rate p.a.`)
+    
+
+```
+
+```{r}
+previous_model_new_extract_results |> 
+  arrange(`Point of delivery`, desc(Mitigation)) |> 
+  gt::gt(caption = "GAM results on current data")
+```
+
+
+### Comparing three sets of results
+
+We can plot the central growth rates for each pod and mitigation type from each of the three analyses:
+
+-   the principal results from this analysis
+-   the results of the previous GAMs when ran on the latest data
+-   the the results of the previous analysis
+
+```{r comparison_all_results}
+combined_data <- bind_rows(
+  "Previous (paper)" = previous_gam_results,
+  "Revised" = total_model_results,
+  "Revised with previous formula" = previous_model_new_extract_results,
+  .id = "Analysis") |> 
+  dplyr::select(!`Difference in growth rate p.a.`) |> 
+  mutate(`Growth p.a.` = as.numeric(sub("^([-0-9.]+)%.*", "\\1", `Growth p.a.`))/100) 
+
+combined_data |> 
+  ggplot(aes(x=`Growth p.a.`,y=Analysis, fill = Mitigation)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~`Point of delivery`) +
+  theme(legend.position = "top", 
+        legend.title = element_blank()) +
+  guides(fill = guide_legend(nrow = 2)) +
+  NHSRtheme::scale_fill_nhs() +
+  scale_x_continuous(labels = scales::percent) +
+  ggtitle("Comparison of activity mitigation analysis")
+
+```
+
 
 ## Age-sex standardisation
 
