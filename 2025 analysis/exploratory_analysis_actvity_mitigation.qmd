@@ -314,6 +314,45 @@ current_mitigators_data |>
   xlab("Financial year") +
   ylab("Activity")
 ```
+
+```{r activity_by_mitig_table}
+table_data <- current_mitigators_data |> 
+  summarise(activity = sum(activity), .by = c(fyear, pod, mitigation_type)) |>
+  mutate(activity_p = activity / sum(activity), .by = c(fyear, pod)) |> 
+  mutate(activity_text = paste0(scales::comma(activity), " (", scales::percent(activity_p, accuracy = 1),")")) |> 
+  mitigator_lengthener_fn() |> 
+  pod_lengthener_fn() |> 
+  dplyr::select(pod_long, mitigatable_long, fyear, activity_text) |> 
+  pivot_wider(names_from = fyear, values_from = activity_text)
+
+# Create subtotals manually
+subtotals <- current_mitigators_data |> 
+  summarise(activity = sum(activity), .by = c(fyear, pod)) |> 
+  mutate(activity_text = paste0(scales::comma(activity), " (100%)")) |> 
+  pod_lengthener_fn() |> 
+  mutate(mitigatable_long = "Total") |> 
+  select(pod_long, mitigatable_long, fyear, activity_text) |> 
+  pivot_wider(names_from = fyear, values_from = activity_text)
+
+# Bind subtotal rows to the main table
+full_table <- bind_rows(table_data, subtotals) |>
+  arrange(pod_long, desc(mitigatable_long))
+
+full_table |> 
+  gt::gt(
+    groupname_col = "pod_long", 
+    rowname_col = "mitigatable_long", 
+    caption = "Activity counts by point of delivery and mitigation class from 2011/12 to 2019/20") |> 
+  gt::tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      rows = mitigatable_long == "Total"
+    )
+  )
+
+  
+```
+
 ### Indexed activity by mitigation type
 
 ```{r mitigation_type_index}
