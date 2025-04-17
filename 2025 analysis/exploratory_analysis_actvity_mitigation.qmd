@@ -145,7 +145,7 @@ aae_mitigators_data <- read.csv(
   here(
     "2025 analysis", 
     "Data Bricks results and queries", 
-    "2025_04_07_aae_mitig_data.csv"
+    "2025_04_17_aae_mitig_data.csv"
     )
   )
 
@@ -1283,7 +1283,7 @@ SELECT
   COUNT(DISTINCT a.key) AS activity
 FROM
   nhp.raw_data.ecds a
-INNER JOIN
+LEFT JOIN
   strategyunit.default.lad_19_rgn_19_en_lu_948748_b_0_eaa_54_fe_888_a_604_b_126_f_5_e_672_4818463568216355194 b
   ON a.resladst_ons = b.LAD19CD
 WHERE
