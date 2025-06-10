@@ -792,7 +792,7 @@ gam_data_aae <- current_mitigators_population_data |>
 ```{r elective_bam}
 elective_bam_re_start <- Sys.time()
 elective_bam_re <- bam(
-  activity ~ s(age, by = sex_icd) + sex + mitigation_type + fyear + fyear:mitigation_type + chapter_number + imd_quintile + s(resgor_ons, bs = "re") + offset(log(population)),
+  activity ~ s(age, by = sex) + sex + mitigation_type + fyear + fyear:mitigation_type + chapter_number + imd_quintile + s(resgor_ons, bs = "re") + offset(log(population)),
   family = nb(link = 'log'),
   weights = population_share,
   data = gam_data_apc,
@@ -814,7 +814,7 @@ broom::tidy(elective_bam_re, parametric = TRUE) |>
 ```{r non_elective_bam}
 non_elective_bam_re_start <- Sys.time()
 non_elective_bam_re <- bam(
-  activity ~ s(age, by = sex_icd) + sex + mitigation_type + fyear + fyear:mitigation_type + chapter_number + imd_quintile + s(resgor_ons, bs = "re") + offset(log(population)),
+  activity ~ s(age, by = sex) + sex + mitigation_type + fyear + fyear:mitigation_type + chapter_number + imd_quintile + s(resgor_ons, bs = "re") + offset(log(population)),
   family = nb(link = 'log'),
   weights = population_share,
   data = gam_data_apc,
