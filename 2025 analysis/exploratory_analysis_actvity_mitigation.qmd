@@ -294,6 +294,121 @@ pod_lengthener_fn <- function(df) {
 }
 ```
 
+### Activity subset table
+
+```{r activity_subset_table}
+# ---- READ DATA ----
+results_by_activity_subset <- read.csv(
+  here::here(
+    "2025 analysis",
+    "Data Bricks results and queries",
+    "activity_by_strategy_breakdown.csv"
+  )
+)
+
+# Apply your functions and filters
+activity_subset_table <- results_by_activity_subset |>
+  mutate(fyear = as.numeric(str_sub(fyear, end = 4))) |> 
+  filter(pod != "maternity") |> 
+  pod_lengthener_fn() |> 
+  mitigator_lengthener_fn()
+
+# Get your pre-calculated totals
+totals <- current_mitigators_data |> 
+  filter(fyear %in% c(2011, 2019)) |> 
+  summarise(activity = sum(activity), .by = c(fyear, pod)) |> 
+  pod_lengthener_fn() |> 
+  mutate(mitigatable_long = "All activity")
+
+# Combine into full_table
+full_table <- bind_rows(activity_subset_table, totals)
+
+
+# ---- PROCESS FOR GT TABLE ----
+
+# Adjust fyear labels
+full_table <- full_table |>
+  mutate(
+    fyear_label = case_when(
+      fyear == 2011 ~ "2011/12",
+      fyear == 2019 ~ "2019/20",
+      TRUE ~ as.character(fyear)
+    )
+  )
+
+# adjust the activity subset for the all activity and none 
+full_table <- full_table |> 
+  mutate(activity_subset = case_when(
+    is.na(activity_subset) ~ "All activity",
+    activity_subset == "none" ~ "All non-mitigatable activity",
+    TRUE ~ activity_subset
+  ))
+
+
+
+# Summarise and pivot
+pivot_table <- full_table |> 
+  group_by(pod_long, mitigatable_long, activity_subset, fyear_label) |> 
+  summarise(activity = sum(activity), .groups = "drop") |> 
+  pivot_wider(
+    names_from = fyear_label,
+    values_from = activity
+  )
+
+# Pre-calculate % of pod total and format display
+pivot_table_pct <- pivot_table |> 
+  pivot_longer(cols = starts_with("20"), names_to = "fyear_label", values_to = "activity") |> 
+  mutate(
+    pct = activity / activity[mitigatable_long=="All activity"],
+    .by = c(pod_long, fyear_label)
+  ) |> 
+  mutate(
+    display = paste0(scales::comma(activity), " (", scales::percent(pct,1), ")")
+    ) |> 
+  select(pod_long, mitigatable_long, activity_subset, fyear_label, display) |> 
+  pivot_wider(
+    names_from = fyear_label, 
+    values_from = display
+  ) |> 
+  arrange(
+    pod_long,
+    desc(is.na(mitigatable_long)),  # So subtotals (no mitigation type) come last
+    mitigatable_long,
+    activity_subset
+  )
+
+
+
+# ---- BUILD GT TABLE ----
+gt_table <- pivot_table_pct |> 
+  gt(groupname_col = "pod_long") |> 
+  cols_label(
+    mitigatable_long = "Mitigation type",
+    activity_subset = "Activity subset"
+  ) |> 
+  cols_move_to_start(columns = c("pod_long", "mitigatable_long", "activity_subset")) |> 
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      rows = mitigatable_long %in% c("All activity", "Not mitigatable")
+    )
+  ) |> 
+  tab_options(
+    table.font.size = px(14),
+    data_row.padding = px(5)
+  ) |> 
+  tab_header(
+    title = "Activity across four points of delivery mitigatable subset"
+  ) |>
+  tab_footnote(
+    footnote = "Note that figures will not sum to the total for each due to overlaps between subsets"
+    )
+
+
+# Print the table
+gt_table
+```
+
 ### Activity by mitigation type
 
 ```{r activity_by_mitig}
