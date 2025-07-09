@@ -1303,15 +1303,10 @@ apc_mitigators_data |>
   ) |>
   tab_spanner(
     label = "Elective",
-    columns = matches("^IpElec_")
+    columns = matches("^Elective admissions")
   ) |>
   tab_spanner(
-    label = "Emergency",
-    columns = matches("^IpEmer_")
-  ) |>
-  tab_spanner(
-    label = "Maternity",
-    columns = matches("^IpMat_")
+    label = "Non-elective",
+    columns = matches("^Non-elective admissions")
   )
-
 ```
