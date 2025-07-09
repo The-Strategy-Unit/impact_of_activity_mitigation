@@ -814,10 +814,11 @@ current_mitigators_population_data |>
   filter(fyear == 2019) |> 
   region_lookup_fn(resgor_ons) |>
   summarise(activity_rate = sum(activity) / sum(population) * 1000, .by = c(region, imd_quintile, pod)) |> 
+  pod_lengthener_fn() |> 
   ggplot(aes(x=activity_rate, y=region, fill = imd_quintile)) +
   NHSRtheme::scale_fill_nhs() +
   geom_col(position = "dodge") +
-  facet_wrap(~pod, scales = "free_x") +
+  facet_wrap(~pod_long, scales = "free_x") +
   guides(fill = guide_legend(title = "IMD quintile")) +
   xlab("Region") +
   ylab("Activity rate per 1,000 population") +
@@ -835,7 +836,6 @@ To calculate BAMs we need to do the following additional prep:
 -   the sex-icd/type/group variables need to be created
 -   region needs to be a factor
 -   need to load the {mgcv} package
--   remove the elective re-direction and substitution cases as well as the non-elective de-adoption cases, given these have extremely low counts
 :::
 
 ```{r bam_data}
@@ -846,9 +846,6 @@ current_mitigators_population_data <- current_mitigators_population_data |>
          mitigation_type = factor(mitigation_type,  levels = c("none", "deAdopt", "prev", "reSu")))
 
 gam_data_apc <- current_mitigators_population_data |> 
-  filter(pod %in% c("elective", "non-elective")) |> 
-  filter(!(pod == "elective" & mitigation_type == "reSu"),
-         !(pod == "non-elective" & mitigation_type == "deAdopt")) |> 
   dplyr::select(!c(type, group)) |>  
   mutate(population_share = population / mean(population)) |> 
   mutate(sex = factor(sex))
