@@ -761,7 +761,7 @@ population |>
 
 ## Activity & population combined
 
-we link between the activity and population data by year, age, sex, region, and IMD quintile. 
+We link between the activity and population data by year, age, sex, region, and IMD quintile. 
 
 ```{r data_linkage}
 
@@ -782,7 +782,7 @@ glimpse(current_mitigators_population_data)
 ```
 
 ::: callout-note
-The population data is perfectly filled in for all combinations of `year` (2011/12 - 2019/20), `age` (1-90), `sex` ("f" or "m"),  `rgn09cd` ("E12000001"-"E12000009"), and imd_quintile (1-5).
+The population data is perfectly filled in for all combinations of `year` (2011/12 - 2019/20), `age` (1-90), `sex` ("f" or "m"),  `rgn09cd` ("E12000001"-"E12000009"), and `imd_quintile` (1-5).
 
 The activity data was extracted in such as a way as to remove any NA values in the joining columns.
 
