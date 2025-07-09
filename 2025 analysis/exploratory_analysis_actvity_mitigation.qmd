@@ -42,7 +42,7 @@ The previous analysis controlled for population growth by age and sex. In this p
 
 ## Structure
 
-The collection of the data from HES occurs in [a Data Bricks notebook](https://adb-4243551358552236.16.azuredatabricks.net/editor/notebooks/3706892377783776?o=4243551358552236).
+The collection of the data from HES occurs in [a Data Bricks notebook](https://adb-4243551358552236.16.azuredatabricks.net/editor/notebooks/3706892377783776?o=4243551358552236). ([Also available on GitHub](https://github.com/The-Strategy-Unit/impact_of_activity_mitigation/blob/updated_analysis_2025/2025%20analysis/data_bricks_activity_mitig_extraction.ipynb))
 
 We make some comparisons to the previous data by pod and mitigation type.
 
