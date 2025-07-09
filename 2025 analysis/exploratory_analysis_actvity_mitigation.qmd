@@ -247,9 +247,10 @@ We can see below that the trends are essentially the same in all cases. Elective
 ```{r counts_by_pod}
 mitigation_comparison |> 
   summarise(activity = sum(activity), .by = c(fyear, data, pod)) |> 
+  pod_lengthener_fn() |> 
   ggplot(aes(x=fyear, y=activity, colour=data)) +
   geom_line(linewidth=1) +
-  facet_wrap(~pod, scales = "free_y") +
+  facet_wrap(~pod_long, scales = "free_y") +
   ggtitle("Counts of activity by pod for current and previous extracts") +
   scale_y_continuous(labels = scales::label_number(suffix = "m", scale = 1e-6), limits = c(0,NA)) +
   NHSRtheme::scale_colour_nhs() +
