@@ -1,0 +1,1 @@
+This is the code for pulling from NOMIS. It wasn't used in the end as we extracted the data directly from the ONS in the "Population data/"" folder.
