@@ -1248,7 +1248,7 @@ age_sex_standardised_rates |>
 
 
 
-```
+
 
 ## Annex - ICD10 chapters by year
 
