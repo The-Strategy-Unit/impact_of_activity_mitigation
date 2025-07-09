@@ -589,7 +589,7 @@ current_mitigators_data |>
 
 ### Diagnosis
 
-The table below shows the count and proportion of activity by ICD-10 chapter for each pod. We have the yearly figures in the annex.
+The table below shows the count and proportion of activity by ICD-10 chapter for each pod in 2011/12. We have the yearly figures in the annex.
 
 ```{r icd10_table}
 icd10_descriptions <- readxl::read_excel(
@@ -603,14 +603,17 @@ icd10_levels <- c("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X",
                   "XX", "XXI", "XXII")
 
 apc_mitigators_data |>
+  filter(fyear == 201112) |> 
+  pod_lengthener_fn() |> 
   left_join(icd10_descriptions, by = c("chapter_number" = "Chapter")) |> 
-  summarise(activity = sum(activity), .by = c(pod, chapter_number, Title)) |>
+  summarise(activity = sum(activity), .by = c(pod_long, chapter_number, Title)) |>
   mutate(
-    proportion = activity / sum(activity), .by = c(pod),
+    proportion = activity / sum(activity), .by = c(pod_long),
     chapter_number = factor(chapter_number, levels = icd10_levels)  # Convert to ordered factor
   ) |>
   arrange(chapter_number) |>  # Ensures correct sorting
-  pivot_wider(names_from = pod, values_from = c(activity, proportion), names_glue = "{pod}_{.value}") |> 
+  pivot_wider(names_from = pod_long, values_from = c(activity, proportion), names_glue = "{pod_long}_{.value}") |> 
+  janitor::adorn_totals() |> 
   gt() |> 
   cols_label(chapter_number = "ICD-10 chapter",
              ends_with("activity") ~ "Activity",
@@ -626,15 +629,11 @@ apc_mitigators_data |>
   ) |>
   tab_spanner(
     label = "Elective",
-    columns = matches("^IpElec_")
+    columns = matches("^Elective admissions")
   ) |>
   tab_spanner(
-    label = "Emergency",
-    columns = matches("^IpEmer_")
-  ) |>
-  tab_spanner(
-    label = "Maternity",
-    columns = matches("^IpMat_")
+    label = "Non-elective",
+    columns = matches("^Non-elective admissions")
   )
 
 
