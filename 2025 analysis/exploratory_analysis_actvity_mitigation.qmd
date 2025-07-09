@@ -1038,7 +1038,7 @@ total_model_results |>
   gt::gt()
 ```
 
-## Comparison of resuls
+## Comparison of results
 
 ### Previous results from paper
 
