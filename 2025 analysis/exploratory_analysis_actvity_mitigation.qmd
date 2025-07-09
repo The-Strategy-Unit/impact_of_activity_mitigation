@@ -61,201 +61,6 @@ library(here)
 library(gt)
 ```
 
-## Data loading and patching
-
-We need to do some level of patching to ensure that the latest extracts are comparable to the previous extracts.
-
-### apc
-
-```{r apc_data_loading}
-apc_mitigators_data <- read.csv(
-  here(
-    "2025 analysis", 
-    "Data Bricks results and queries", 
-    "2025_05_28_apc_mitig_data.csv"
-    )
-  )
-
-apc_mitigators_data <- apc_mitigators_data |> 
-  mutate(fyear = as.numeric(str_sub(fyear,end = 4)),
-         imd_quintile = factor(as.numeric(imd_quintile)),
-         chapter_number = factor(chapter_number),
-         mitigation_type = if_else(mitigation_type == "null", "none", mitigation_type),
-         age = as.numeric(age),
-         pod = case_match(
-           pod,
-           "non-elective" ~ "IpEmer",
-           "elective" ~ "IpElec",
-           "maternity" ~ "IpMat"
-         )) |> 
-  filter(pod != "IpMat")
-
-```
-
-### opa
-
-```{r opa_data_loading}
-opa_mitigators_data_201112_201415 <- read.csv(
-  here(
-    "2025 analysis", 
-    "Data Bricks results and queries", 
-    "2025_05_29_opa_mitig_data_201112-201415.csv"
-    )
-  )
-
-opa_mitigators_data_201516_201819 <- read.csv(
-  here(
-    "2025 analysis", 
-    "Data Bricks results and queries", 
-    "2025_05_29_opa_mitig_data_201516-201819.csv"
-    )
-  )
-
-opa_mitigators_data_201920 <- read.csv(
-  here(
-    "2025 analysis", 
-    "Data Bricks results and queries", 
-    "2025_05_29_opa_mitig_data_201920.csv"
-    )
-  )
-
-opa_mitigators_data <- bind_rows(
-  opa_mitigators_data_201112_201415,
-  opa_mitigators_data_201516_201819,
-  opa_mitigators_data_201920)
-
-rm(opa_mitigators_data_201112_201415,
-   opa_mitigators_data_201516_201819,
-   opa_mitigators_data_201920
-   )
-
-opa_mitigators_data <- opa_mitigators_data |>
-  mutate(fyear = as.numeric(str_sub(fyear,end = 4)),
-         imd_quintile = factor(as.numeric(imd_quintile)),
-         sex = if_else(sex==1, "m", "f"),
-         pod = "opAtt"
-      )
-    
-```
-
-### aae
-
-```{r aae_data_loading}
-aae_mitigators_data <- read.csv(
-  here(
-    "2025 analysis", 
-    "Data Bricks results and queries", 
-    "2025_04_17_aae_mitig_data.csv"
-    )
-  )
-
-aae_mitigators_data <- aae_mitigators_data |> 
-  mutate(fyear = as.numeric(str_sub(fyear,end = 4)),
-         imd_quintile = factor(as.numeric(imd_quintile)),
-         sex = if_else(sex==1, "m", "f"),
-         pod = "edAtt")
-```
-
-```{r previous_data}
-mitigators_data_previous <- read.csv(
-  here(
-    "data",
-    "nonDemogMitig_data.csv"
-  )
-)
-
-# patching the rationing vs de-adoption issue
-mitigators_data_previous <- mitigators_data_previous |> 
-  filter(pod != "IpMat") |>
-  mutate(mitigatable = case_when(
-    mitigatable == "rati" ~ "deAdopt",
-    TRUE ~ mitigatable)) |> 
-  rename(fyear = yr,
-         mitigation_type = mitigatable)
-```
-
-There are the data structures now:
-
-```{r glimpse}
-glimpse(apc_mitigators_data)
-glimpse(opa_mitigators_data)
-glimpse(aae_mitigators_data)
-glimpse(mitigators_data_previous)
-```
-
-We combine the three extracts from Data Bricks (one for each pod) to form `current_mitigators_data`.
-
-Then we form a single table `mitigation_comparison` for all the data.
-
-```{r bind_pods}
-current_mitigators_data <- bind_rows(
-  apc_mitigators_data,
-  opa_mitigators_data,
-  aae_mitigators_data)
-
-glimpse(current_mitigators_data)
-```
-
-```{r old_new_join}
-mitigation_comparison <- bind_rows(
-  current = current_mitigators_data,
-  previous = mitigators_data_previous,
-  .id = "data")
-
-glimpse(mitigation_comparison)
-```
-
-## Comparisons between data
-
-### Comparison of counts by pod
-
-Viewing the full Data Bricks queries in the annex, we can see that we are using the `nhp.raw_data` layer of HES on Data Bricks. These are prior to filtering to acute providers. The previous HES queries were on broadly equivalent inclusion criteria.
-
-We can see below that the trends are essentially the same in all cases. Elective and maternity are almost identical numbers.
-
-**ED attendances are now higher, with this being about 16.1m vs 15.3m in 2019.**
-
-**Emergency admissions are lower, by about 6.8m to 7.1m in 2019.**
-
-**Outpatient appointments are higher by about 94.3m to 83.4m in 2019 -- CHECK ABOUT DNAs**
-
-```{r counts_by_pod}
-mitigation_comparison |> 
-  summarise(activity = sum(activity), .by = c(fyear, data, pod)) |> 
-  ggplot(aes(x=fyear, y=activity, colour=data)) +
-  geom_line(linewidth=1) +
-  facet_wrap(~pod, scales = "free_y") +
-  ggtitle("Counts of activity by pod for current and previous extracts") +
-  scale_y_continuous(labels = scales::label_number(suffix = "m", scale = 1e-6), limits = c(0,NA)) +
-  NHSRtheme::scale_colour_nhs() +
-  scale_x_continuous(breaks= scales::pretty_breaks())
-```
-
-### Comparison of counts of activity in scope of mitigators
-
-The below array is arranged so that the columns correspond to mitigation type and the rows to pods.
-
-The figures have been standardised so that the line shows the proportion of that pods activity that falls into each mitigation type; if you sum the value in the blue or red line for a given financial year across each mitigation type, it will add up to 100%.
-
-We can see the biggest differences is in the amount of outpatients activity that is in scope of mitigators -- in the current analysis, around 12.5pp more activity falls in scope than in the previous. This is likely in part a result of the mitigation strategy *Outpatient GP Referred First Attendance Reduction* being added.
-
-```{r counts_by_pod_mitigation}
-mitigation_comparison |> 
-  summarise(activity = sum(activity), .by = c(fyear, data, pod, mitigation_type)) |> 
-  mutate(activity_p = activity / sum(activity), .by = c(fyear, pod, data)) |> 
-  ggplot(aes(x=fyear,y=activity_p, colour = data)) +
-  geom_line() +
-  # NHSRtheme::theme_nhs() +
-  NHSRtheme::scale_colour_nhs() +
-  scale_y_continuous(labels = scales::percent, limits = c(0,1)) +
-  labs(title = "Comparison of inpatient activity by pod and mitigation",
-       subtitle = "for data bricks and previous query") +
-  facet_grid(rows = vars(pod), cols = vars(mitigation_type), scales = "free_y") +
-  scale_x_continuous(breaks= scales::pretty_breaks())
-```
-
-## Exploratory analyses
-
 ```{r mitigator_lengthener_fn}
 mitigator_lengthener_fn <- function(data) {
   data |> 
@@ -273,26 +78,209 @@ mitigator_lengthener_fn <- function(data) {
 pod_lengthener_fn <- function(df) {
   df |>
     mutate(
-      pod_long = case_when(
-        pod == "IpElec" ~ "Elective admission",
-        pod == "IpEmer" ~ "Non-elective admission",
-        pod == "IpMat" ~ "Maternity admission",
-        pod == "opAtt" ~ "Outpatient attendance",
-        pod == "edAtt" ~ "ED attendance",
-        TRUE ~ NA_character_
+      pod_long = case_match(
+        pod,
+        "elective" ~ "Elective admissions",
+        "non-elective" ~ "Non-elective admissions",
+        "maternity" ~ "Maternity admissions",
+        "opa" ~ "Outpatient attendances",
+        "aae" ~ "ED attendances"
       )
     ) |>
     mutate(pod_long = factor(pod_long,
       levels = c(
-        "Elective admission",
-        "Non-elective admission",
-        "Maternity admission",
-        "Outpatient attendance",
-        "ED attendance"
+        "Elective admissions",
+        "Non-elective admissions",
+        "Maternity admissions",
+        "Outpatient attendances",
+        "ED attendances"
       )
     ))
 }
 ```
+
+## Data loading and patching
+
+We need to do some level of patching to ensure that the latest extracts are comparable to the previous extracts.
+
+### apc
+
+```{r apc_data_loading}
+apc_mitigators_data <- read.csv(
+  here(
+    "2025 analysis", 
+    "Data Bricks results and queries", 
+    "apc_mitig_data.csv"
+    )
+  )
+```
+
+### opa
+
+```{r opa_data_loading}
+opa_mitigators_data_201112_201415 <- read.csv(
+  here(
+    "2025 analysis", 
+    "Data Bricks results and queries", 
+    "opa_mitig_data_201112-201415.csv"
+    )
+  )
+
+opa_mitigators_data_201516_201819 <- read.csv(
+  here(
+    "2025 analysis", 
+    "Data Bricks results and queries", 
+    "opa_mitig_data_201516-201819.csv"
+    )
+  )
+
+opa_mitigators_data_201920 <- read.csv(
+  here(
+    "2025 analysis", 
+    "Data Bricks results and queries", 
+    "opa_mitig_data_201920.csv"
+    )
+  )
+
+opa_mitigators_data <- bind_rows(
+  opa_mitigators_data_201112_201415,
+  opa_mitigators_data_201516_201819,
+  opa_mitigators_data_201920
+  )
+
+rm(opa_mitigators_data_201112_201415,
+   opa_mitigators_data_201516_201819,
+   opa_mitigators_data_201920)
+
+```
+
+### aae
+
+```{r aae_data_loading}
+aae_mitigators_data <- read.csv(
+  here(
+    "2025 analysis", 
+    "Data Bricks results and queries", 
+    "aae_mitig_data.csv"
+    )
+  )
+```
+
+## Data combination and cleaning
+
+We combine the three extracts from Data Bricks (one for each pod) to form `current_mitigators_data`.
+
+```{r bind_pods}
+current_mitigators_data <- bind_rows(
+  apc_mitigators_data,
+  opa_mitigators_data,
+  aae_mitigators_data)
+
+glimpse(current_mitigators_data)
+
+
+```
+
+```{r cleaning}
+current_mitigators_data <- current_mitigators_data |> 
+  mutate(
+    sex = if_else(sex==1, "m", "f"),
+    fyear = as.numeric(str_sub(fyear,end = 4)),
+    chapter_number = factor(chapter_number),
+    imd_quintile = factor(imd_quintile)
+  ) 
+
+```
+
+## Comparisons between data
+
+We extract the previous data and amend to be able to bind together.
+
+```{r previous_data}
+mitigators_data_previous <- read.csv(
+  here(
+    "data",
+    "nonDemogMitig_data.csv"
+  )
+)
+
+# patching the rationing vs de-adoption issue
+mitigators_data_previous <- mitigators_data_previous |> 
+  filter(pod != "IpMat") |>
+  mutate(
+    mitigatable = case_when(
+      mitigatable == "rati" ~ "deAdopt",
+      TRUE ~ mitigatable
+      ),
+    pod = case_match(
+      pod, 
+      "IpElec" ~ "elective",
+      "IpEmer" ~ "non-elective",
+      "opAtt" ~ "opa",
+      "edAtt" ~ "aae"
+      )) |> 
+  rename(fyear = yr,
+         mitigation_type = mitigatable)
+```
+
+
+Then we form a single table `mitigation_comparison` for all the data.
+
+```{r old_new_join}
+mitigation_comparison <- bind_rows(
+  current = current_mitigators_data,
+  previous = mitigators_data_previous,
+  .id = "data")
+
+glimpse(mitigation_comparison)
+```
+
+
+### Comparison of counts by pod
+
+Viewing the full Data Bricks queries in the annex, we can see that we are using the `nhp.raw_data` layer of HES on Data Bricks. These are prior to filtering to acute providers. The previous HES queries were on broadly equivalent inclusion criteria.
+
+We can see below that the trends are essentially the same in all cases. Elective and maternity are almost identical numbers.
+
+**Outpatient appointments are consistently higher in the latest data compared to the previous data. This is likely in part to do with the inclusion of tele-attendances. The differences starts at 9.5m in 2011/12 and reduces to 4.9m by 2019/20.**
+
+```{r counts_by_pod}
+mitigation_comparison |> 
+  summarise(activity = sum(activity), .by = c(fyear, data, pod)) |> 
+  ggplot(aes(x=fyear, y=activity, colour=data)) +
+  geom_line(linewidth=1) +
+  facet_wrap(~pod, scales = "free_y") +
+  ggtitle("Counts of activity by pod for current and previous extracts") +
+  scale_y_continuous(labels = scales::label_number(suffix = "m", scale = 1e-6), limits = c(0,NA)) +
+  NHSRtheme::scale_colour_nhs() +
+  scale_x_continuous(breaks= scales::pretty_breaks())
+```
+
+### Comparison of counts of activity in scope of mitigators
+
+The below array is arranged so that the columns correspond to mitigation type and the rows to pods.
+
+```{r counts_by_pod_mitigation}
+mitigation_comparison |> 
+  #filter(!(pod=="elective" & mitigation_type == "reSu" & data == "current")) |> 
+  summarise(activity = sum(activity), .by = c(fyear, data, pod, mitigation_type)) |> 
+  mutate(activity_p = activity / sum(activity), .by = c(fyear, data, pod)) |> 
+  mitigator_lengthener_fn() |> 
+  pod_lengthener_fn() |> 
+  ggplot(aes(x=fyear,y=activity_p, colour = mitigatable_long, linetype = data)) +
+  geom_line(linewidth=1) +
+  theme(legend.position = "top", 
+        legend.title = element_blank()) +
+  guides(color = guide_legend(nrow = 2)) +
+  NHSRtheme::scale_colour_nhs() +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Comparison of inpatient activity by pod and mitigation",
+       subtitle = "for data bricks and previous query") +
+  facet_wrap(~pod_long, scales = "free_y") +
+  scale_x_continuous(breaks= scales::pretty_breaks())
+```
+
+## Exploratory analyses
 
 ### Activity subset table
 
@@ -302,7 +290,7 @@ results_by_activity_subset <- read.csv(
   here::here(
     "2025 analysis",
     "Data Bricks results and queries",
-    "activity_by_strategy_breakdown.csv"
+    "activity_by_strategy.csv"
   )
 )
 
@@ -435,6 +423,7 @@ table_data <- current_mitigators_data |>
   summarise(activity = sum(activity), .by = c(fyear, pod, mitigation_type)) |>
   mutate(activity_p = activity / sum(activity), .by = c(fyear, pod)) |> 
   mutate(activity_text = paste0(scales::comma(activity), " (", scales::percent(activity_p, accuracy = 1),")")) |> 
+  mutate(fyear = paste(fyear, fyear + 1 - 2000, sep = "/")) |> 
   mitigator_lengthener_fn() |> 
   pod_lengthener_fn() |> 
   dplyr::select(pod_long, mitigatable_long, fyear, activity_text) |> 
@@ -444,6 +433,7 @@ table_data <- current_mitigators_data |>
 subtotals <- current_mitigators_data |> 
   summarise(activity = sum(activity), .by = c(fyear, pod)) |> 
   mutate(activity_text = paste0(scales::comma(activity), " (100%)")) |> 
+  mutate(fyear = paste(fyear, fyear + 1 - 2000, sep = "/")) |> 
   pod_lengthener_fn() |> 
   mutate(mitigatable_long = "Total") |> 
   select(pod_long, mitigatable_long, fyear, activity_text) |> 
@@ -467,6 +457,8 @@ full_table |>
 
   
 ```
+
+
 
 ### Indexed activity by mitigation type
 
@@ -521,7 +513,19 @@ region_lookup_fn <- function(data, rgn_field) {
         TRUE ~ NA_character_
       )
     )
-  }
+}
+
+england_regions <- c(
+  "E12000001",
+  "E12000002",
+  "E12000003",
+  "E12000004",
+  "E12000005",
+  "E12000006",
+  "E12000007",
+  "E12000008",
+  "E12000009"
+)
 ```
 
 ```{r regional_activity}
@@ -634,9 +638,6 @@ apc_mitigators_data |>
 
 ```
 
-Across the study period, we can see that the most common chapters for emergency admissions are *XVIII - Symptoms, signs and abnormal clinical and laboratory findings, not elsewhere classified* (17.6%), *X - Diseases of the respiratory system* (13.5%), and *XIX - Injury, poisoning and certain other consequences of external causes* (13.3%).
-
-For elective, they are *II - Neoplasms* (22.4%), *XI - Diseases of the digestive system* (15.5%) and *XIV - Diseases of the genitourinary system* (13.0%).
 
 The full data by year are printed in the annex.
 
@@ -773,17 +774,14 @@ glimpse(current_mitigators_population_data)
 
 ::: callout-note
 -   The population data is perfectly filled in for all combinations of year, age, sex, region, imd quintile. Therefore, any rows which are dropped in the inner join are because of the activity data
--   The drop is from 8,231,327 to 7,808,138 which equates to 423,189 fewer rows
--   There are 422,561 rows in the activity data for which the region variable is not one of the 9 Government Office Regions, thus the vast majority of rows which don't pass through the join are due to that.
+-   The drop is from `r scales::comma(nrow(current_mitigators_data))` to `r scales::comma(nrow(current_mitigators_population_data))` which equates to `r scales::comma(nrow(current_mitigators_data)-nrow(current_mitigators_population_data))` fewer rows
+-   There are `r scales::comma(sum(!(current_mitigators_data$resgor_ons %in% england_regions)))` rows in the activity data for which the region variable is not one of the 9 Government Office Regions, thus the vast majority of rows which don't pass through the join are due to that.
 :::
 
 ```{r region_check}
 current_mitigators_data |>
   mutate(region_known = if_else(
-    resgor_ons %in% c(
-      "E12000001", "E12000002", "E12000003", "E12000004", "E12000005",
-      "E12000006", "E12000007", "E12000008", "E12000009"
-    ),
+    resgor_ons %in% england_regions,
     "England known abode",
     "Other"
   )) |>
@@ -827,17 +825,18 @@ current_mitigators_population_data |>
   summarise(activity = sum(activity, na.rm = TRUE),
             population = sum(population, na.rm = TRUE),
             .by = c(imd_quintile, pod)) |> 
+  pod_lengthener_fn() |> 
   mutate(activity_rate = activity / population * 1000) |> 
   ggplot(aes(x=imd_quintile, y=activity_rate, fill = imd_quintile)) +
   geom_col() +
   NHSRtheme::scale_fill_nhs() +
-  facet_wrap(~pod, scales = "free_y") +
+  facet_wrap(~pod_long, scales = "free_y") +
   theme(axis.text.x = element_blank(),
         axix.tick.x = element_blank()) +
   guides(fill = guide_legend(title = "IMD quintile")) +
   xlab("IMD quintile") +
-  ylab("Activity rate per 1,000 population")
-  ggtitle("Activity rate by IMD quintile and pod, 2019/20")
+  ylab("Activity rate per 1,000 population") +
+  ggtitle("Activity rate by IMD quintile and pod, 2019/20") 
 ```
 
 ### And activity rates by region and IMD
@@ -847,22 +846,20 @@ current_mitigators_population_data |>
   filter(fyear == 2019) |> 
   region_lookup_fn(resgor_ons) |>
   summarise(activity_rate = sum(activity) / sum(population) * 1000, .by = c(region, imd_quintile, pod)) |> 
-  ggplot(aes(x=region, y=activity_rate, fill = imd_quintile)) +
+  ggplot(aes(x=activity_rate, y=region, fill = imd_quintile)) +
   NHSRtheme::scale_fill_nhs() +
   geom_col(position = "dodge") +
-  facet_wrap(~pod, scales = "free_y") +
+  facet_wrap(~pod, scales = "free_x") +
   guides(fill = guide_legend(title = "IMD quintile")) +
   xlab("Region") +
   ylab("Activity rate per 1,000 population") +
-  ggtitle("Activity rates by region and IMD quintile, 2019/20") +
-  theme(axis.text.x = element_text(angle = 90))
-  
+  ggtitle("Activity rates by region and IMD quintile, 2019/20")
 ```
 
 ## BAMs
 
 ::: callout-note
-We use big additive models (BAMs) instead of general additive models (GAMs) in this analysis given the very large amounts of data being analysed - there are 4.4m rows in the linked data.
+We use big additive models (BAMs) instead of general additive models (GAMs) in this analysis given the very large amounts of data being analysed.
 
 To calculate BAMs we need to do the following additional prep:
 
@@ -881,22 +878,22 @@ current_mitigators_population_data <- current_mitigators_population_data |>
          mitigation_type = factor(mitigation_type,  levels = c("none", "deAdopt", "prev", "reSu")))
 
 gam_data_apc <- current_mitigators_population_data |> 
-  filter(pod %in% c("IpElec", "IpEmer")) |> 
-  filter(!(pod == "IpElec" & mitigation_type == "reSu"),
-         !(pod == "IpEmer" & mitigation_type == "deAdopt")) |> 
+  filter(pod %in% c("elective", "non-elective")) |> 
+  filter(!(pod == "elective" & mitigation_type == "reSu"),
+         !(pod == "non-elective" & mitigation_type == "deAdopt")) |> 
   dplyr::select(!c(type, group)) |>  
   mutate(population_share = population / mean(population)) |> 
-  mutate(sex_icd = factor(paste(sex, chapter_number, sep = "_")))
+  mutate(sex = factor(sex))
 
 gam_data_op <- current_mitigators_population_data |> 
-  filter(pod == "opAtt") |> 
+  filter(pod == "opa") |> 
   dplyr::select(!c(group, chapter_number)) |> 
   mutate(population_share = population / mean(population)) |> 
   mutate(sex_type = factor(paste(sex, type, sep = "_")))
   
 
 gam_data_aae <- current_mitigators_population_data |> 
-  filter(pod == "edAtt" & fyear) |> 
+  filter(pod == "aae" & fyear) |> 
   dplyr::select(!c(type, chapter_number)) |> 
   mutate(population_share = population / mean(population)) |> 
   mutate(sex_group = factor(paste(sex, group, sep = "_")))
@@ -911,7 +908,7 @@ elective_bam_re <- bam(
   family = nb(link = 'log'),
   weights = population_share,
   data = gam_data_apc,
-  subset = (pod == "IpElec"),
+  subset = (pod == "elective"),
   discrete = TRUE)
 elective_bam_re_end <- Sys.time()
 elective_bam_re_time_taken <- elective_bam_re_end - elective_bam_re_start
@@ -933,7 +930,7 @@ non_elective_bam_re <- bam(
   family = nb(link = 'log'),
   weights = population_share,
   data = gam_data_apc,
-  subset = (pod == "IpEmer"),
+  subset = (pod == "non-elective"),
   discrete = TRUE)
 non_elective_bam_re_end <- Sys.time()
 non_elective_bam_re_time_taken <- non_elective_bam_re_end - non_elective_bam_re_start
@@ -1055,10 +1052,10 @@ extract_total_model_results <- function(gam, df_name) {
 
 ```{r growth_rates_table}
 bams <- list(
-  "IpElec" = elective_bam_re,
-  "IpEmer" = non_elective_bam_re,
-  "opAtt" = opa_bam_re,
-  "edAtt" = ed_bam_re
+  "elective" = elective_bam_re,
+  "non-elective" = non_elective_bam_re,
+  "opa" = opa_bam_re,
+  "aae" = ed_bam_re
 )
 
 
@@ -1085,11 +1082,19 @@ The previous results from the paper are below.
 ```{r load_prev_results}
 previous_gam_results <- readxl::read_excel(here("2025 analysis","previous gam results.xlsx"))
 
+previous_gam_results <- previous_gam_results |> 
+  mutate(
+    `Point of delivery` = paste0(
+        `Point of delivery`,
+        "s"
+    )
+  )
+      
+
 previous_gam_results |> 
   mutate(
-    `Point of delivery` = factor(
-      `Point of delivery`,
-      levels = c("Elective admission", "Non-elective admission", "Outpatient attendance", "ED attendance")
+    `Point of delivery` = factor(`Point of delivery`,
+      levels = c("Elective admissions", "Non-elective admissions", "Outpatient attendances", "ED attendances")
       )
     ) |> 
   arrange(`Point of delivery`, desc(Mitigation)) |> 
@@ -1103,8 +1108,8 @@ previous_gam_results |>
 # (one large df given now all the gams are based on same co-varariates
 # and will run much quicker)
 gam_data_for_previous_equation <- current_mitigators_population_data |> 
-  filter(!(pod == "IpElec" & mitigation_type == "reSu"),
-         !(pod == "IpEmer" & mitigation_type == "deAdopt")) |> 
+  filter(!(pod == "elective" & mitigation_type == "reSu"),
+         !(pod == "non-elective" & mitigation_type == "deAdopt")) |> 
   summarise(activity = sum(activity),
             population = sum(population),
             .by = c(pod, fyear, age, sex, mitigation_type)) |> 
@@ -1112,7 +1117,7 @@ gam_data_for_previous_equation <- current_mitigators_population_data |>
   mutate(sex_mitigation_type = factor(paste(sex, mitigation_type, sep = "_")))
 
 
-pods <- list("IpElec", "IpEmer", "opAtt", "edAtt")
+pods <- list("elective", "non-elective", "opa", "aae")
 
 # create a function which will run with variable of the pod in question
 previous_gam_function <- function(chosen_pod) {
@@ -1126,11 +1131,7 @@ previous_gam_function <- function(chosen_pod) {
 
 previous_gams_with_new_data <- map(pods, previous_gam_function)
 
-names(previous_gams_with_new_data) <- list(
-  "IpElec",
-  "IpEmer",
-  "opAtt",
-  "edAtt")
+names(previous_gams_with_new_data) <- list("elective", "non-elective", "opa", "aae")
 
 previous_model_new_extract_results <- map2(previous_gams_with_new_data, names(previous_gams_with_new_data), extract_total_model_results) |> 
   bind_rows() |> 
@@ -1147,7 +1148,6 @@ previous_model_new_extract_results |>
   arrange(`Point of delivery`, desc(Mitigation)) |> 
   gt::gt(caption = "GAM results on current data")
 ```
-
 
 ### Comparing three sets of results
 
@@ -1179,10 +1179,9 @@ combined_data |>
 
 ```
 
-
 ## Age-sex standardisation
 
-For comparison we present standardised rates of each mitigation type and pod in a chart. The standardisation is using the baseline in 2015/16 as the reference population, controlling for age, sex, region and deprivation quintile.
+For comparison we present standardised rates of each mitigation type and pod in a chart. The standardisation is using the baseline in 2011/12 as the reference population, controlling for age, sex, region and deprivation quintile.
 
 ```{r age_sex_standardisation_calculation}
 # 1. Filter for the baseline year (assuming the earliest year is the baseline)
@@ -1251,15 +1250,39 @@ age_sex_standardised_rates |>
        subtitle = "Standardisation by age, sex, region, and IMD19 quintile")
 ```
 
+```{r}
+age_sex_standardised_rates |> 
+  pod_lengthener_fn() |> 
+  mitigator_lengthener_fn() |> 
+  filter(!(pod=="IpElec" & mitigation_type == "reSu"),
+         !(pod=="IpEmer" & mitigation_type == "deAdopt")) |> 
+  mutate(
+    expeted_activity_indexed = expected_activity / first(expected_activity, order_by = fyear),
+    .by = c(pod, mitigation_type)) |> 
+  ggplot(aes(x=fyear, y=expeted_activity_indexed, colour = mitigatable_long)) +
+  geom_line(linewidth=1) +
+  scale_x_continuous(breaks = scales::pretty_breaks()) +
+  facet_wrap(~pod_long, scales = "free_y") +
+  theme(legend.position = "top", 
+        legend.title = element_blank()) +
+  guides(colour = guide_legend(nrow = 2)) +
+  NHSRtheme::scale_colour_nhs() +
+  xlab("Financial year") +
+  ylab("Standardised activity") +
+  labs(title = "Standardised rates of activity by pod and mitigation type",
+       subtitle = "Standardisation by age, sex, region, and IMD19 quintile")
+```
+
+
+
 ## Annex - Data Bricks queries
 
 ### Inpatient
 
-For inpatient we have to create a view which samples, categorises and ranks the mitigators in the table `nhp.raw_data.apc_mitigators`. This is the first of the following two scripts. The subsequent derives the counts of admissions.
+For inpatient we have to create a table which samples, categorises and ranks the mitigators in the table `nhp.raw_data.apc_mitigators`. The sample and categorisation is achieved in `apc_mitigation_data_unranked` and the ranking to de-duplicate the data in `apc_mitigation_data_ranked`. These two are defined below.
 
 ``` sql
-CREATE VIEW activity_mitigation_table AS
-WITH sampled_data AS (
+CREATE OR REPLACE TABLE apc_mitigation_data_unranked AS
     SELECT
         epikey,
         sample_rate,
@@ -1282,9 +1305,12 @@ WITH sampled_data AS (
             ELSE 'none'
         END AS mitigation_type
     FROM nhp.raw_data.apc_mitigators
-    WHERE sample_rate >= RAND()
-),
-ranked_data AS (
+    WHERE sample_rate >= RAND();
+```
+
+```sql
+CREATE OR REPLACE TABLE apc_mitigation_data_ranked AS 
+WITH ranked_data AS ( 
     SELECT
         *,
         ROW_NUMBER() OVER (
@@ -1297,7 +1323,7 @@ ranked_data AS (
                     ELSE 4
                 END
         ) AS rn
-    FROM sampled_data
+    FROM apc_mitigation_data_unranked
 )
 SELECT * FROM ranked_data WHERE rn = 1;
 ```
@@ -1423,7 +1449,7 @@ GROUP BY
 ## Annex - ICD10 chapters by year
 
 | Chapter | Block    | Title                                                                                               |
-|-----------------|-----------------|--------------------------------------|
+|-------------------|-------------------|-----------------------------------|
 | I       | A00--B99 | Certain infectious and parasitic diseases                                                           |
 | II      | C00--D48 | Neoplasms                                                                                           |
 | III     | D50--D89 | Diseases of the blood and blood-forming organs and certain disorders involving the immune mechanism |
