@@ -753,7 +753,7 @@ population |>
 
 ## Activity & population combined
 
-we link between the activity and population data by year, age, sex, region, and IMD quintile.
+we link between the activity and population data by year, age, sex, region, and IMD quintile. 
 
 ```{r data_linkage}
 
@@ -774,47 +774,14 @@ glimpse(current_mitigators_population_data)
 ```
 
 ::: callout-note
--   The population data is perfectly filled in for all combinations of year, age, sex, region, imd quintile. Therefore, any rows which are dropped in the inner join are because of the activity data
--   The drop is from `r scales::comma(nrow(current_mitigators_data))` to `r scales::comma(nrow(current_mitigators_population_data))` which equates to `r scales::comma(nrow(current_mitigators_data)-nrow(current_mitigators_population_data))` fewer rows
--   There are `r scales::comma(sum(!(current_mitigators_data$resgor_ons %in% england_regions)))` rows in the activity data for which the region variable is not one of the 9 Government Office Regions, thus the vast majority of rows which don't pass through the join are due to that.
+The population data is perfectly filled in for all combinations of `year` (2011/12 - 2019/20), `age` (1-90), `sex` ("f" or "m"),  `rgn09cd` ("E12000001"-"E12000009"), and imd_quintile (1-5).
+
+The activity data was extracted in such as a way as to remove any NA values in the joining columns.
+
+There are `r scales::comma(nrow(current_mitigators_data))` rows in `current_mitigators_data` prior to inner joining onto the population data and `r scales::comma(nrow(current_mitigators_population_data))` in the joined data.
+
+**Therefore the removal of NAs worked as expected and we are losing no rows from the exploratory analysis when we feed these data into our regression formulae.**
 :::
-
-```{r region_check}
-current_mitigators_data |>
-  mutate(region_known = if_else(
-    resgor_ons %in% england_regions,
-    "England known abode",
-    "Other"
-  )) |>
-  count(region_known) |> 
-  janitor::adorn_totals() |> 
-  gt::gt(caption = "Mitigators data by region") |> 
-  gt::fmt_number(decimals = 0)
-  
-```
-
-### Trends in counts of activity by pod and mitigation after joining to population
-
-Let's also view the growth in activity by pod and mitigation type in the joined data, i.e. once the non-matches are disposed of.
-
-```{r activity_pop_comparison}
-current_mitigators_population_data |> 
-  summarise(activity = sum(activity), .by = c(fyear, pod, mitigation_type)) |>
-  pod_lengthener_fn() |> 
-  mitigator_lengthener_fn() |> 
-  ggplot(aes(x=fyear, y=activity, colour = mitigatable_long)) +
-  geom_line(linewidth = 1) +
-  scale_y_continuous(labels = scales::label_number(suffix = "m", scale = 1e-6), limits = c(0,NA)) +
-  scale_x_continuous(breaks = scales::pretty_breaks()) +
-  NHSRtheme::scale_colour_nhs() +
-  facet_wrap(~pod_long, scales = "free_y") +
-    theme(legend.position = "top", 
-        legend.title = element_blank()) +
-  guides(colour = guide_legend(nrow = 2)) +
-  xlab("Financial year") +
-  ylab("Activity") +
-  ggtitle("Activity counts by pod and mitigation type after joining to population data")
-```
 
 ### Exploration of activity rates
 
