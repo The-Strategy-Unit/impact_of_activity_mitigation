@@ -310,8 +310,15 @@ totals <- current_mitigators_data |>
   pod_lengthener_fn() |> 
   mutate(mitigatable_long = "All activity")
 
+mitigatable_totals <- current_mitigators_data |> 
+  filter(fyear %in% c(2011, 2019)) |> 
+  filter(mitigation_type != "none") |> 
+  summarise(activity = sum(activity), .by = c(fyear, pod)) |> 
+  pod_lengthener_fn() |> 
+  mutate(mitigatable_long = "Mitigatable")
+
 # Combine into full_table
-full_table <- bind_rows(activity_subset_table, totals)
+full_table <- bind_rows(activity_subset_table, totals, mitigatable_totals)
 
 
 # ---- PROCESS FOR GT TABLE ----
@@ -329,7 +336,8 @@ full_table <- full_table |>
 # adjust the activity subset for the all activity and none 
 full_table <- full_table |> 
   mutate(activity_subset = case_when(
-    is.na(activity_subset) ~ "All activity",
+    mitigatable_long == "All activity" ~ "All activity",
+    mitigatable_long == "Mitigatable" ~ "All mitigatable activity",
     activity_subset == "none" ~ "All non-mitigatable activity",
     TRUE ~ activity_subset
   ))
@@ -354,7 +362,7 @@ pivot_table_pct <- pivot_table |>
   ) |> 
   mutate(
     display = paste0(scales::comma(activity), " (", scales::percent(pct,1), ")")
-    ) |> 
+  ) |> 
   select(pod_long, mitigatable_long, activity_subset, fyear_label, display) |> 
   pivot_wider(
     names_from = fyear_label, 
@@ -380,7 +388,7 @@ gt_table <- pivot_table_pct |>
   tab_style(
     style = cell_text(weight = "bold"),
     locations = cells_body(
-      rows = mitigatable_long %in% c("All activity", "Not mitigatable")
+      rows = mitigatable_long %in% c("All activity", "Not mitigatable", "Mitigatable")
     )
   ) |> 
   tab_options(
@@ -392,7 +400,7 @@ gt_table <- pivot_table_pct |>
   ) |>
   tab_footnote(
     footnote = "Note that figures will not sum to the total for each due to overlaps between subsets"
-    )
+  )
 
 
 # Print the table
