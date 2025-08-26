@@ -27,7 +27,12 @@ activity_by_mitigation_plot <- current_mitigators_data |>
     breaks = fyear_labels$fyear,
     labels = fyear_labels$fyear_label
   ) +
-  NHSRtheme::scale_colour_nhs() +
+  NHSRtheme::scale_colour_nhs(
+    labels = c("Not mitigatable" = "Usual activity",
+               "Mitigatable via de-adoption" = "Mitigatable via de-adoption",
+               "Mitigatable via prevention" = "Mitigatable via prevention",
+               "Mitigatable via redirection & substitution" = "Mitigatable via redirection & substitution")
+  ) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = "top",
         legend.title = element_blank()) +
@@ -50,7 +55,12 @@ indexed_activity_by_mitigation_plot <- current_mitigators_data |>
     breaks = fyear_labels$fyear,
     labels = fyear_labels$fyear_label
   ) +
-  NHSRtheme::scale_colour_nhs() +
+  NHSRtheme::scale_colour_nhs(
+    labels = c("Not mitigatable" = "Usual activity",
+               "Mitigatable via de-adoption" = "Mitigatable via de-adoption",
+               "Mitigatable via prevention" = "Mitigatable via prevention",
+               "Mitigatable via redirection & substitution" = "Mitigatable via redirection & substitution")
+  ) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = "top",
         legend.title = element_blank()) +
