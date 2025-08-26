@@ -110,7 +110,7 @@ apc_mitigators_data <- read.csv(
   here(
     "2025 analysis", 
     "Data Bricks results and queries", 
-    "apc_mitig_data.csv"
+    "apc_mitig_data_exc_post_ranking.csv"
     )
   )
 ```
@@ -292,7 +292,7 @@ results_by_activity_subset <- read.csv(
   here::here(
     "2025 analysis",
     "Data Bricks results and queries",
-    "activity_by_strategy_breakdown.csv"
+    "activity_by_strategy_breakdown_exc_post_ranking.csv"
   )
 )
 
