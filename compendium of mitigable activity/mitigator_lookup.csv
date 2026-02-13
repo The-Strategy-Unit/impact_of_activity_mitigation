@@ -1,0 +1,97 @@
+Code,Activity,Type,Name,Variable,From,To
+AE-AA-001,A&E,Activity avoidance,"A&E Discharged No Investigation or Treatment (Adult, Ambulance Conveyed)",discharged_no_treatment_adult_ambulance,v0.6.3,-
+AE-AA-002,A&E,Activity avoidance,"A&E Discharged No Investigation or Treatment (Adult, Walk-in)",discharged_no_treatment_adult_walk-in,v0.6.3,-
+AE-AA-003,A&E,Activity avoidance,"A&E Discharged No Investigation or Treatment (Children, Ambulance Conveyed)",discharged_no_treatment_child_ambulance,v0.6.3,-
+AE-AA-004,A&E,Activity avoidance,"A&E Discharged No Investigation or Treatment (Children, Walk-in)",discharged_no_treatment_child_walk-in,v0.6.3,-
+AE-AA-005,A&E,Activity avoidance,"A&E Frequent Attenders (Adult, Ambulance Conveyed)",frequent_attenders_adult_ambulance,v0.6.0,-
+AE-AA-006,A&E,Activity avoidance,"A&E Frequent Attenders (Adult, Walk-in)",frequent_attenders_adult_walk-in,v0.6.0,-
+AE-AA-007,A&E,Activity avoidance,"A&E Frequent Attenders (Children, Ambulance Conveyed)",frequent_attenders_child_ambulance,v0.6.0,-
+AE-AA-008,A&E,Activity avoidance,"A&E Frequent Attenders (Children, Walk-in)",frequent_attenders_child_walk-in,v0.6.0,-
+AE-AA-009,A&E,Activity avoidance,"A&E Patients Left Before Being Treated (Adult, Ambulance Conveyed)",left_before_seen_adult_ambulance,v0.6.0,-
+AE-AA-010,A&E,Activity avoidance,"A&E Patients Left Before Being Treated (Adult, Walk-in)",left_before_seen_adult_walk-in,v0.6.0,-
+AE-AA-011,A&E,Activity avoidance,"A&E Patients Left Before Being Treated (Children, Ambulance Conveyed)",left_before_seen_child_ambulance,v0.6.0,-
+AE-AA-012,A&E,Activity avoidance,"A&E Patients Left Before Being Treated (Children, Walk-in)",left_before_seen_child_walk-in,v0.6.0,-
+AE-AA-013,A&E,Activity avoidance,"A&E Low Cost Discharged Attendances (Adult, Ambulance Conveyed)",low_cost_discharged_adult_ambulance,v0.6.0,-
+AE-AA-014,A&E,Activity avoidance,"A&E Low Cost Discharged Attendances (Adult, Walk-in)",low_cost_discharged_adult_walk-in,v0.6.0,-
+AE-AA-015,A&E,Activity avoidance,"A&E Low Cost Discharged Attendances (Children, Ambulance Conveyed)",low_cost_discharged_child_ambulance,v0.6.0,-
+AE-AA-016,A&E,Activity avoidance,"A&E Low Cost Discharged Attendances (Children, Walk-in)",low_cost_discharged_child_walk-in,v0.6.0,-
+IP-AA-001,IP,Activity avoidance,Alcohol Related Admissions (Acute Conditions - Partially Attributable),alcohol_partially_attributable_acute,v0.6.0,-
+IP-AA-002,IP,Activity avoidance,Alcohol Related Admissions (Chronic Conditions - Partially Attributable),alcohol_partially_attributable_chronic,v0.6.0,-
+IP-AA-003,IP,Activity avoidance,Alcohol Related Admissions (Wholly Attributable),alcohol_wholly_attributable,v0.6.0,-
+IP-AA-004,IP,Activity avoidance,Ambulatory Care Sensitive Admissions (Acute Conditions),ambulatory_care_conditions_acute,v0.6.0,-
+IP-AA-005,IP,Activity avoidance,Ambulatory Care Sensitive Admissions (Chronic Conditions),ambulatory_care_conditions_chronic,v0.6.0,-
+IP-AA-006,IP,Activity avoidance,Ambulatory Care Sensitive Admissions (Vaccine Preventable),ambulatory_care_conditions_vaccine_preventable,v0.6.0,-
+IP-AA-007,IP,Activity avoidance,Cancelled Operations,cancelled_operations,v0.6.0,-
+IP-AA-008,IP,Activity avoidance,End of Life Care Admissions (died within 2 days),eol_care_2_days,v0.6.0,-
+IP-AA-009,IP,Activity avoidance,End of Life Care Admissions (died within 3-14 days),eol_care_3_to_14_days,v0.6.0,-
+IP-AA-010,IP,Activity avoidance,Interventions with Limited Evidence (ENT),evidence_based_interventions_ent,v0.6.0,-
+IP-AA-011,IP,Activity avoidance,Interventions with Limited Evidence (General Surgery),evidence_based_interventions_general_surgery,v0.6.0,-
+IP-AA-012,IP,Activity avoidance,Interventions with Limited Evidence (GI Surgical),evidence_based_interventions_gi_surgical,v0.6.0,-
+IP-AA-013,IP,Activity avoidance,Interventions with Limited Evidence (MSK),evidence_based_interventions_msk,v0.6.0,-
+IP-AA-014,IP,Activity avoidance,Interventions with Limited Evidence (Urology),evidence_based_interventions_urology,v0.6.0,-
+IP-AA-015,IP,Activity avoidance,Interventions with Limited Evidence (Vascular Varicose Veins),evidence_based_interventions_vascular_varicose_veins,v0.6.0,-
+IP-AA-016,IP,Activity avoidance,Falls Related Admissions,falls_related_admissions,v0.6.0,-
+IP-AA-017,IP,Activity avoidance,Older People with Frailty Admissions (High Frailty Risk),frail_elderly_high,v0.6.0,-
+IP-AA-018,IP,Activity avoidance,Older People with Frailty Admissions (Intermediate Frailty Risk),frail_elderly_intermediate,v0.6.0,-
+IP-AA-019,IP,Activity avoidance,Intentional Self Harm Admissions,intentional_self_harm,v0.6.0,-
+IP-AA-020,IP,Activity avoidance,Medically Unexplained Symptoms Admissions,medically_unexplained_related_admissions,v0.6.0,-
+IP-AA-021,IP,Activity avoidance,Medicines Related Admissions (Explicit),medicines_related_admissions_explicit,v0.6.0,-
+IP-AA-022,IP,Activity avoidance,Medicines Related Admissions (Implicit - Anti-Diabetics),medicines_related_admissions_implicit_anti-diabetics,v0.6.0,-
+IP-AA-023,IP,Activity avoidance,Medicines Related Admissions (Implicit - Benzodiazepines),medicines_related_admissions_implicit_benzodiasepines,v0.6.0,-
+IP-AA-024,IP,Activity avoidance,Medicines Related Admissions (Implicit - Diuretics),medicines_related_admissions_implicit_diurectics,v0.6.0,-
+IP-AA-025,IP,Activity avoidance,Medicines Related Admissions (Implicit - NSAIDs),medicines_related_admissions_implicit_nsaids,v0.6.0,-
+IP-AA-026,IP,Activity avoidance,Obesity Related Admissions,obesity_related_admissions,v0.6.0,-
+IP-AA-027,IP,Activity avoidance,Mental Health Admissions via Emergency Department,raid_ae,v0.6.0,-
+IP-AA-028,IP,Activity avoidance,Emergency Readmissions Within 28 Days,readmission_within_28_days,v0.6.0,-
+IP-AA-029,IP,Activity avoidance,Smoking Related Admissions,smoking,v0.6.0,-
+IP-AA-030,IP,Activity avoidance,Virtual Wards Admission Avoidance (Acute Respiratory Infection),virtual_wards_activity_avoidance_ari,v1.1.0,-
+IP-AA-031,IP,Activity avoidance,Virtual Wards Admission Avoidance (Heart Failure),virtual_wards_activity_avoidance_heart_failure,v1.1.0,-
+IP-AA-032,IP,Activity avoidance,Admission With No Overnight Stay and No Procedure (Adults),zero_los_no_procedure_adult,v0.6.0,-
+IP-AA-033,IP,Activity avoidance,Admission With No Overnight Stay and No Procedure (Children),zero_los_no_procedure_child,v0.6.0,-
+IP-EF-001,IP,Efficiencies,Ambulatory Emergency Care (High Potential),ambulatory_emergency_care_high,v0.6.0,v3.3.0
+IP-EF-002,IP,Efficiencies,Ambulatory Emergency Care (Low Potential),ambulatory_emergency_care_low,v0.6.0,v3.3.0
+IP-EF-003,IP,Efficiencies,Ambulatory Emergency Care (Moderate Potential),ambulatory_emergency_care_moderate,v0.6.0,v3.3.0
+IP-EF-004,IP,Efficiencies,Ambulatory Emergency Care (Very High Potential),ambulatory_emergency_care_very_high,v0.6.0,v3.3.0
+IP-EF-005,IP,Efficiencies,Day Procedures: Occasionally performed as a Daycase,day_procedures_occasionally_dc,v1.1.0,-
+IP-EF-006,IP,Efficiencies,Day Procedures: Occasionally performed in Outpatients,day_procedures_occasionally_op,v1.1.0,-
+IP-EF-007,IP,Efficiencies,Day Procedures: Usually performed as a Daycase,day_procedures_usually_dc,v1.1.0,-
+IP-EF-008,IP,Efficiencies,Day Procedures: Usually performed in Outpatients,day_procedures_usually_op,v1.1.0,-
+IP-EF-009,IP,Efficiencies,Emergency Admission of Older People,emergency_elderly,v0.6.0,-
+IP-EF-010,IP,Efficiencies,Enhanced Recovery (Bladder),enhanced_recovery_bladder,v0.6.0,-
+IP-EF-011,IP,Efficiencies,Enhanced Recovery (Breast),enhanced_recovery_breast,v0.6.0,-
+IP-EF-012,IP,Efficiencies,Enhanced Recovery (Colectomy),enhanced_recovery_colectomy,v0.6.0,-
+IP-EF-013,IP,Efficiencies,Enhanced Recovery (Hip),enhanced_recovery_hip,v0.6.0,-
+IP-EF-014,IP,Efficiencies,Enhanced Recovery (Hysterectomy),enhanced_recovery_hysterectomy,v0.6.0,-
+IP-EF-015,IP,Efficiencies,Enhanced Recovery (Knee),enhanced_recovery_knee,v0.6.0,-
+IP-EF-016,IP,Efficiencies,Enhanced Recovery (Prostate),enhanced_recovery_prostate,v0.6.0,-
+IP-EF-017,IP,Efficiencies,Enhanced Recovery (Rectum),enhanced_recovery_rectum,v0.6.0,-
+IP-EF-018,IP,Efficiencies,Excess Beddays (Elective Admissions),excess_beddays_elective,v0.6.0,-
+IP-EF-019,IP,Efficiencies,Excess Beddays (Emergency Admissions),excess_beddays_emergency,v0.6.0,-
+IP-EF-020,IP,Efficiencies,General LoS Reduction: Elective Admissions,general_los_reduction_elective,v0.6.0,-
+IP-EF-021,IP,Efficiencies,General LoS Reduction: Emergency Admissions,general_los_reduction_emergency,v0.6.0,-
+IP-EF-022,IP,Efficiencies,Pre-op Length of Stay of 1 day,pre-op_los_1-day,v0.6.0,-
+IP-EF-023,IP,Efficiencies,Pre-op Length of Stay of 2 days,pre-op_los_2-day,v0.6.0,-
+IP-EF-024,IP,Efficiencies,Admissions with Mental Health Comorbidities,raid_ip,v0.6.0,-
+IP-EF-025,IP,Efficiencies,Stroke Early Supported Discharge,stroke_early_supported_discharge,v0.6.0,-
+IP-EF-026,IP,Efficiencies,Virtual Wards LoS Reduction (Acute Respiratory Infection),virtual_wards_efficiencies_ari,v1.1.0,-
+IP-EF-027,IP,Efficiencies,Virtual Wards LoS Reduction (Heart Failure),virtual_wards_efficiencies_heart_failure,v1.1.0,-
+IP-EF-028,IP,Efficiencies,Same Day Emergency Care (Low Potential),same_day_emergency_care_low,v3.4.0,-
+IP-EF-029,IP,Efficiencies,Same Day Emergency Care (Moderate Potential),same_day_emergency_care_moderate,v3.4.0,-
+IP-EF-030,IP,Efficiencies,Same Day Emergency Care (High Potential),same_day_emergency_care_high,v3.4.0,-
+IP-EF-031,IP,Efficiencies,Same Day Emergency Care (Very High Potential),same_day_emergency_care_very_high,v3.4.0,-
+OP-AA-001,OP,Activity avoidance,"Outpatient Consultant to Consultant Referrals (Adult, Non-Surgical)",consultant_to_consultant_reduction_adult_non-surgical,v0.6.0,-
+OP-AA-002,OP,Activity avoidance,"Outpatient Consultant to Consultant Referrals (Adult, Surgical)",consultant_to_consultant_reduction_adult_surgical,v0.6.0,-
+OP-AA-003,OP,Activity avoidance,"Outpatient Consultant to Consultant Referrals (Children, Non-Surgical)",consultant_to_consultant_reduction_child_non-surgical,v0.6.0,-
+OP-AA-004,OP,Activity avoidance,"Outpatient Consultant to Consultant Referrals (Children, Surgical)",consultant_to_consultant_reduction_child_surgical,v0.6.0,-
+OP-AA-005,OP,Activity avoidance,"Outpatient Followup Appointment Reduction (Adult, Non-Surgical)",followup_reduction_adult_non-surgical,v0.6.0,-
+OP-AA-006,OP,Activity avoidance,"Outpatient Followup Appointment Reduction (Adult, Surgical)",followup_reduction_adult_surgical,v0.6.0,-
+OP-AA-007,OP,Activity avoidance,"Outpatient Followup Appointment Reduction (Children, Non-Surgical)",followup_reduction_child_non-surgical,v0.6.0,-
+OP-AA-008,OP,Activity avoidance,"Outpatient Followup Appointment Reduction (Children, Surgical)",followup_reduction_child_surgical,v0.6.0,-
+OP-AA-009,OP,Activity avoidance,"Outpatient GP Referred First Attendance Reduction (Adult, Non-Surgical)",gp_referred_first_attendance_reduction_adult_non-surgical,v0.6.3,-
+OP-AA-010,OP,Activity avoidance,"Outpatient GP Referred First Attendance Reduction (Adult, Surgical)",gp_referred_first_attendance_reduction_adult_surgical,v0.6.3,-
+OP-AA-011,OP,Activity avoidance,"Outpatient GP Referred First Attendance Reduction (Children, Non-Surgical)",gp_referred_first_attendance_reduction_child_non-surgical,v0.6.3,-
+OP-AA-012,OP,Activity avoidance,"Outpatient GP Referred First Attendance Reduction (Children, Surgical)",gp_referred_first_attendance_reduction_child_surgical,v0.6.3,-
+OP-EF-001,OP,Efficiencies,"Outpatient Convert to Tele-Attendance (Adult, Non-Surgical)",convert_to_tele_adult_non-surgical,v0.6.0,-
+OP-EF-002,OP,Efficiencies,"Outpatient Convert to Tele-Attendance (Adult, Surgical)",convert_to_tele_adult_surgical,v0.6.0,-
+OP-EF-003,OP,Efficiencies,"Outpatient Convert to Tele-Attendance (Children, Non-Surgical)",convert_to_tele_child_non-surgical,v0.6.0,-
+OP-EF-004,OP,Efficiencies,"Outpatient Convert to Tele-Attendance (Children, Surgical)",convert_to_tele_child_surgical,v0.6.0,-
