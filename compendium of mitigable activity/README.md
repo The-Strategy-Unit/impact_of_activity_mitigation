@@ -1,4 +1,4 @@
-This creates the data for the CPTMA.
+This creates the data for the CTPMA.
 
 The Data Bricks notebook `CTPMA notebook.ipynb` is used to gather the data on each TPMA and the counts of all mitigable and usual activity in each activity type.
 
